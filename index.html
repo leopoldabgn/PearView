@@ -355,7 +355,19 @@
       loadPanorama(currentLieuKey, currentPosKey);
     }
 
+    // Réinitialise la rotation de la caméra au centre (0, 0, 0)
+    function resetCameraRotation() {
+      const cameraEl = document.querySelector('#main-camera');
+      if (cameraEl && cameraEl.components['look-controls']) {
+        // Réinitialise la rotation de l'objet Three.js interne de look-controls
+        cameraEl.components['look-controls'].pitchObject.rotation.x = 0;
+        cameraEl.components['look-controls'].yawObject.rotation.y = 0;
+      }
+    }
+
     function loadPanorama(lieuKey, posKey, dateIndex = null) {
+      const isNewPosition = (lieuKey !== currentLieuKey || posKey !== currentPosKey);
+
       currentLieuKey = lieuKey;
       currentPosKey = posKey;
       
@@ -370,20 +382,43 @@
       const currentDateStr = extractDate(photoPath);
 
       const sky = document.querySelector('#background');
-      sky.emit('fade-out');
-      setTimeout(() => {
-        sky.setAttribute('src', photoPath);
-        sky.emit('fade-in');
-      }, 300);
+      const nodesContainer = document.querySelector('#navigation-nodes');
 
+      // 1. DÉCLENCHER LE FONDU AU NOIR (Fade Out)
+      sky.emit('fade-out');
+      
+      // On masque instantanément les anciennes flèches pour éviter qu'elles ne sautent
+      if (nodesContainer) nodesContainer.setAttribute('visible', 'false');
+
+      // 2. ATTENDRE LA FIN DU FONDU AU NOIR (300ms) AVANT DE CHANGER LA SCÈNE
+      setTimeout(() => {
+        // A. Changer la photo 360
+        sky.setAttribute('src', photoPath);
+
+        // B. Recentrer la caméra dans le noir (si changement de position)
+        if (isNewPosition) {
+          resetCameraRotation();
+        }
+
+        // C. Générer les nouvelles flèches
+        renderArrows(posData.arrows || []);
+        
+        // Cacher à nouveau très brièvement les flèches puis ré-afficher
+        if (nodesContainer) nodesContainer.setAttribute('visible', 'true');
+
+        // D. DÉCLENCHER LE FONDU ENTRANT (Fade In)
+        sky.emit('fade-in');
+
+      }, 300); // 300ms correspond exactement à la durée ('dur: 300') définie dans l'animation A-Frame
+
+      // Mise à jour de l'UI
       document.getElementById('select-position').value = posKey;
       populateDateDropdown(posData);
 
       const vrText = document.querySelector('#vr-info-display');
-      vrText.setAttribute('value', `${lieuObj.label || lieuKey} - ${posKey} | ${currentDateStr}
-(Manette: A/B pour changer d'année)`);
-
-      renderArrows(posData.arrows || []);
+      if (vrText) {
+        vrText.setAttribute('value', `${lieuObj.label || lieuKey} - ${posKey} | ${currentDateStr}\n(Manette: A/B pour changer d'année)`);
+      }
     }
 
     function renderArrows(arrowsData) {

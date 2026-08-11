@@ -6,64 +6,85 @@
   <!-- Chargement A-Frame local -->
   <script src="aframe.min.js"></script>
   <style>
-    /* Interface 2D sur PC / Mobile */
+    /* Interface 2D sur PC / Mobile (Positionnée en haut à gauche) */
     #ui-container {
       position: absolute;
       top: 15px;
-      left: 50%;
-      transform: translateX(-50%);
+      left: 15px;
       z-index: 999;
       display: flex;
       flex-direction: column;
       gap: 10px;
-      align-items: center;
       font-family: Arial, sans-serif;
     }
-    .ui-bar {
-      background: rgba(0, 0, 0, 0.8);
-      padding: 8px 16px;
-      border-radius: 20px;
+    .ui-panel {
+      background: rgba(0, 0, 0, 0.75);
+      padding: 12px 16px;
+      border-radius: 12px;
       color: white;
       display: flex;
-      gap: 8px;
-      align-items: center;
+      flex-direction: column;
+      gap: 10px;
+      backdrop-filter: blur(5px);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      min-width: 200px;
     }
-    .btn {
-      background: #333;
-      color: white;
-      border: 1px solid #666;
-      padding: 6px 14px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: all 0.2s;
+    .ui-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
-    .btn:hover { background: #555; }
-    .btn.active {
-      background: #007bff;
-      border-color: #0056b3;
+    .ui-group label {
+      font-size: 12px;
+      color: #aaa;
+      text-transform: uppercase;
       font-weight: bold;
+    }
+    select {
+      background: #222;
+      color: white;
+      border: 1px solid #555;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    select:hover {
+      border-color: #007bff;
     }
     #error-msg {
       color: #ff6b6b;
       font-weight: bold;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
 
-  <!-- UI 2D (PC / Navigateur) -->
+  <!-- UI 2D (Listes déroulantes en haut à gauche) -->
   <div id="ui-container">
     <div id="error-msg"></div>
-    <!-- Barre de choix du LIEU -->
-    <div class="ui-bar" id="bar-lieu" style="display:none;">
-      <span>📍 <b>Lieu :</b></span>
-      <div id="location-buttons"></div>
-    </div>
-    <!-- Barre de choix de la DATE -->
-    <div class="ui-bar" id="bar-date" style="display:none;">
-      <span>📅 <b>Date :</b></span>
-      <div id="date-buttons"></div>
+    
+    <div class="ui-panel" id="main-panel" style="display:none;">
+      <!-- Sélecteur de LIEU -->
+      <div class="ui-group">
+        <label for="select-lieu">📍 Lieu :</label>
+        <select id="select-lieu" onchange="onLieuChange(this.value)"></select>
+      </div>
+
+      <!-- Sélecteur de POSITION -->
+      <div class="ui-group">
+        <label for="select-position">🎯 Position :</label>
+        <select id="select-position" onchange="onPositionChange(this.value)"></select>
+      </div>
+
+      <!-- Sélecteur de DATE -->
+      <div class="ui-group">
+        <label for="select-date">📅 Date :</label>
+        <select id="select-date" onchange="onDateChange(this.value)"></select>
+      </div>
     </div>
   </div>
 
@@ -71,6 +92,9 @@
     <a-assets>
       <img id="fleche-img" src="assets/fleche.png">
     </a-assets>
+
+    <!-- Caméra avec inversion des mouvements de souris -->
+    <a-entity camera look-controls="reverseMouseDrag: true" position="0 1.6 0"></a-entity>
 
     <!-- Photo 360 en fond avec effet de fondu -->
     <a-sky id="background" src="" 
@@ -85,7 +109,7 @@
     <a-entity id="leftHand" laser-controls="hand: left" raycaster="objects: .raycastable"></a-entity>
     <a-entity id="rightHand" laser-controls="hand: right" raycaster="objects: .raycastable" controller-buttons></a-entity>
 
-    <!-- Conteneur des flèches interactives -->
+    <!-- Conteneur des flèches interactives au sol -->
     <a-entity id="navigation-nodes"></a-entity>
   </a-scene>
 
@@ -104,13 +128,13 @@
     }
 
     // ==========================================
-    // 1. INITIALISATION DE L'APPLICATION (FETCH CONFIG)
+    // 1. INITIALISATION DE L'APPLICATION
     // ==========================================
     async function initApp() {
       try {
         const response = await fetch('config.json');
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          throw new Error(`Erreur HTTP status: ${response.status}`);
         }
         APP_DATA = await response.json();
 
@@ -134,35 +158,38 @@
           }
         });
 
-        // Afficher les barres UI
-        document.getElementById('bar-lieu').style.display = 'flex';
-        document.getElementById('bar-date').style.display = 'flex';
+        // Afficher le panneau principal
+        document.getElementById('main-panel').style.display = 'flex';
+
+        // Remplir le sélecteur de lieux
+        populateLieuDropdown();
 
         // Charger le premier lieu
         currentLieuKey = lieuxKeys[0];
-        renderLieuButtons();
         selectLieu(currentLieuKey);
 
       } catch (error) {
-        console.error("Erreur lors de l'initialisation :", error);
-        document.getElementById('error-msg').innerText = "Impossible de charger config.json. Vérifiez que le fichier existe à la racine !";
+        console.error("Erreur d'initialisation :", error);
+        document.getElementById('error-msg').innerText = "Impossible de charger config.json. Vérifiez qu'il est présent à la racine !";
       }
     }
 
     // ==========================================
-    // 2. NAVIGATION ET LOGIQUE
+    // 2. GESTION DE LA NAVIGATION
     // ==========================================
 
     function selectLieu(lieuKey) {
-      if (!APP_DATA[lieuKey]) {
-        console.error(`Le lieu ${lieuKey} n'existe pas dans APP_DATA.`);
-        return;
-      }
+      if (!APP_DATA[lieuKey]) return;
       currentLieuKey = lieuKey;
       const lieuData = APP_DATA[lieuKey];
-      currentPosKey = lieuData.defaultPosition || Object.keys(lieuData.positions)[0];
       
-      renderLieuButtons();
+      // Sélectionne la position par défaut ou la première disponible
+      currentPosKey = lieuData.defaultPosition || Object.keys(lieuData.positions)[0];
+
+      // Mettre à jour les sélecteurs déroulants
+      document.getElementById('select-lieu').value = lieuKey;
+      populatePositionDropdown(lieuData);
+
       loadPanorama(currentLieuKey, currentPosKey);
     }
 
@@ -171,10 +198,7 @@
       currentPosKey = posKey;
       
       const lieuObj = APP_DATA[lieuKey];
-      if (!lieuObj || !lieuObj.positions[posKey]) {
-        console.error(`Position non trouvée : ${lieuKey} -> ${posKey}`);
-        return;
-      }
+      if (!lieuObj || !lieuObj.positions[posKey]) return;
 
       const posData = lieuObj.positions[posKey];
 
@@ -182,15 +206,12 @@
         posData.currentDateIdx = dateIndex;
       }
 
-      if (!posData.photos || posData.photos.length === 0) {
-        console.error("Aucune photo pour cette position.");
-        return;
-      }
+      if (!posData.photos || posData.photos.length === 0) return;
 
       const photoPath = posData.photos[posData.currentDateIdx];
       const currentDateStr = extractDate(photoPath);
 
-      // A. Animation de transition
+      // A. Animation de transition du fond
       const sky = document.querySelector('#background');
       sky.emit('fade-out');
 
@@ -199,15 +220,16 @@
         sky.emit('fade-in');
       }, 300);
 
-      // B. Mettre à jour l'UI 2D (Boutons Date)
-      renderDateButtons(posData);
+      // B. Mettre à jour la liste déroulante des positions & dates
+      document.getElementById('select-position').value = posKey;
+      populateDateDropdown(posData);
 
-      // C. Mettre à jour le texte 3D pour le Quest 3
+      // C. Mettre à jour le texte d'information 3D en VR
       const vrText = document.querySelector('#vr-info-display');
       const lieuLabel = lieuObj.label || lieuKey;
-      vrText.setAttribute('value', `${lieuLabel} | ${currentDateStr}\n(Manette: A/B pour changer d'année)`);
+      vrText.setAttribute('value', `${lieuLabel} - ${posKey} | ${currentDateStr}\n(Manette: A/B pour changer d'année)`);
 
-      // D. Afficher les flèches au sol
+      // D. Afficher les flèches de navigation au sol
       renderArrows(posData.arrows || []);
     }
 
@@ -232,50 +254,76 @@
     }
 
     // ==========================================
-    // 3. UI GENERATION
+    // 3. GESTION DES SELECTORS (DROPDOWNS)
     // ==========================================
 
-    function renderLieuButtons() {
-      const container = document.getElementById('location-buttons');
-      container.innerHTML = '';
-
+    function populateLieuDropdown() {
+      const select = document.getElementById('select-lieu');
+      select.innerHTML = '';
       Object.keys(APP_DATA).forEach(lieuKey => {
-        const btn = document.createElement('button');
-        btn.className = `btn ${lieuKey === currentLieuKey ? 'active' : ''}`;
-        btn.innerText = APP_DATA[lieuKey].label || lieuKey;
-        btn.onclick = () => selectLieu(lieuKey);
-        container.appendChild(btn);
+        const opt = document.createElement('option');
+        opt.value = lieuKey;
+        opt.innerText = APP_DATA[lieuKey].label || lieuKey;
+        select.appendChild(opt);
       });
     }
 
-    function renderDateButtons(posData) {
-      const container = document.getElementById('date-buttons');
-      container.innerHTML = '';
+    function populatePositionDropdown(lieuData) {
+      const select = document.getElementById('select-position');
+      select.innerHTML = '';
+      if (!lieuData || !lieuData.positions) return;
 
-      if (!posData.photos) return;
+      Object.keys(lieuData.positions).forEach(posKey => {
+        const opt = document.createElement('option');
+        opt.value = posKey;
+        opt.innerText = posKey;
+        select.appendChild(opt);
+      });
+      select.value = currentPosKey;
+    }
+
+    function populateDateDropdown(posData) {
+      const select = document.getElementById('select-date');
+      select.innerHTML = '';
+      if (!posData || !posData.photos) return;
 
       posData.photos.forEach((photoPath, idx) => {
-        const btn = document.createElement('button');
-        btn.className = `btn ${idx === posData.currentDateIdx ? 'active' : ''}`;
-        btn.innerText = extractDate(photoPath);
-        btn.onclick = () => loadPanorama(currentLieuKey, currentPosKey, idx);
-        container.appendChild(btn);
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.innerText = extractDate(photoPath);
+        select.appendChild(opt);
       });
+      select.value = posData.currentDateIdx;
     }
+
+    // Handlers pour l'événement 'onchange'
+    function onLieuChange(lieuKey) {
+      selectLieu(lieuKey);
+    }
+
+    function onPositionChange(posKey) {
+      loadPanorama(currentLieuKey, posKey);
+    }
+
+    function onDateChange(dateIdx) {
+      loadPanorama(currentLieuKey, currentPosKey, parseInt(dateIdx, 10));
+    }
+
+    // ==========================================
+    // 4. MANETTES META QUEST 3 & VR
+    // ==========================================
 
     function cycleDate(direction) {
       const posData = APP_DATA[currentLieuKey].positions[currentPosKey];
       if (!posData || !posData.photos) return;
 
       let newIdx = posData.currentDateIdx + direction;
-
       if (newIdx >= posData.photos.length) newIdx = 0;
       if (newIdx < 0) newIdx = posData.photos.length - 1;
 
       loadPanorama(currentLieuKey, currentPosKey, newIdx);
     }
 
-    // Composant A-Frame pour capturer les boutons A/B du Quest 3
     AFRAME.registerComponent('controller-buttons', {
       init: function () {
         this.el.addEventListener('abuttondown', () => cycleDate(1));
@@ -290,7 +338,7 @@
       document.querySelector('#vr-info-display').setAttribute('visible', 'false');
     });
 
-    // Démarrage de l'application
+    // Lancement au chargement
     window.onload = initApp;
   </script>
 </body>

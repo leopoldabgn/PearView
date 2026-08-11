@@ -321,11 +321,18 @@
         const lieuxKeys = Object.keys(APP_DATA);
         if (lieuxKeys.length === 0) return;
 
-        lieuxKeys.forEach(lieu => {
+        lieuxKeys.forEach(lieu => { 
           if (APP_DATA[lieu].positions) {
             Object.keys(APP_DATA[lieu].positions).forEach(pos => {
               const posData = APP_DATA[lieu].positions[pos];
-              posData.currentDateIdx = (posData.photos && posData.photos.length > 0) ? posData.photos.length - 1 : 0;
+              if (posData.photos && posData.photos.length > 0) {
+                // Par défaut, sélectionner la photo la plus récente (dernière de la liste triée)
+                if (posData.currentDateIdx === undefined || posData.currentDateIdx >= posData.photos.length) {
+                  posData.currentDateIdx = posData.photos.length - 1;
+                }
+              } else {
+                posData.currentDateIdx = 0;
+              }
               if (!posData.arrows) posData.arrows = [];
             });
           }
@@ -365,8 +372,46 @@
       }
     }
 
+    // Trouve l'index de la photo dont la date (MM-AAAA) est la plus proche de la date cible
+    function findClosestDateIndex(photosList, targetDateStr) {
+      if (!photosList || photosList.length === 0) return 0;
+      if (!targetDateStr) return photosList.length - 1;
+
+      // Découper MM-AAAA cible
+      const [targetMonth, targetYear] = targetDateStr.split('-').map(Number);
+      const targetTotalMonths = targetYear * 12 + targetMonth;
+
+      let closestIndex = 0;
+      let minDiff = Infinity;
+
+      photosList.forEach((photoPath, index) => {
+        const dateStr = extractDate(photoPath);
+        const [m, y] = dateStr.split('-').map(Number);
+        const totalMonths = y * 12 + m;
+
+        const diff = Math.abs(totalMonths - targetTotalMonths);
+
+        // Si la différence en mois est plus petite, c'est notre nouvelle date idéale
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestIndex = index;
+        }
+      });
+
+      return closestIndex;
+    }
+
     function loadPanorama(lieuKey, posKey, dateIndex = null) {
       const isNewPosition = (lieuKey !== currentLieuKey || posKey !== currentPosKey);
+
+      // 1. Récupérer la date actuellement affichée avant de changer de lieu/position
+      let currentDateStr = "";
+      if (APP_DATA[currentLieuKey] && APP_DATA[currentLieuKey].positions[currentPosKey]) {
+        const prevPos = APP_DATA[currentLieuKey].positions[currentPosKey];
+        if (prevPos.photos && prevPos.photos[prevPos.currentDateIdx]) {
+          currentDateStr = extractDate(prevPos.photos[prevPos.currentDateIdx]);
+        }
+      }
 
       currentLieuKey = lieuKey;
       currentPosKey = posKey;
@@ -375,49 +420,48 @@
       if (!lieuObj || !lieuObj.positions[posKey]) return;
 
       const posData = lieuObj.positions[posKey];
-      if (dateIndex !== null) posData.currentDateIdx = dateIndex;
       if (!posData.photos || posData.photos.length === 0) return;
 
+      // 2. Déterminer l'index de date à charger
+      if (dateIndex !== null) {
+        // L'utilisateur a cliqué explicitement sur une date
+        posData.currentDateIdx = dateIndex;
+      } else if (isNewPosition && currentDateStr) {
+        // En cas de changement de lieu/position : cherche la date la plus proche de la précédente
+        posData.currentDateIdx = findClosestDateIndex(posData.photos, currentDateStr);
+      } else if (posData.currentDateIdx === undefined) {
+        posData.currentDateIdx = posData.photos.length - 1;
+      }
+
       const photoPath = posData.photos[posData.currentDateIdx];
-      const currentDateStr = extractDate(photoPath);
+      const newDateStr = extractDate(photoPath);
 
       const sky = document.querySelector('#background');
       const nodesContainer = document.querySelector('#navigation-nodes');
 
-      // 1. DÉCLENCHER LE FONDU AU NOIR (Fade Out)
+      // Fondu au noir
       sky.emit('fade-out');
-      
-      // On masque instantanément les anciennes flèches pour éviter qu'elles ne sautent
       if (nodesContainer) nodesContainer.setAttribute('visible', 'false');
 
-      // 2. ATTENDRE LA FIN DU FONDU AU NOIR (300ms) AVANT DE CHANGER LA SCÈNE
       setTimeout(() => {
-        // A. Changer la photo 360
         sky.setAttribute('src', photoPath);
 
-        // B. Recentrer la caméra dans le noir (si changement de position)
         if (isNewPosition) {
           resetCameraRotation();
         }
 
-        // C. Générer les nouvelles flèches
         renderArrows(posData.arrows || []);
-        
-        // Cacher à nouveau très brièvement les flèches puis ré-afficher
         if (nodesContainer) nodesContainer.setAttribute('visible', 'true');
 
-        // D. DÉCLENCHER LE FONDU ENTRANT (Fade In)
         sky.emit('fade-in');
+      }, 300);
 
-      }, 300); // 300ms correspond exactement à la durée ('dur: 300') définie dans l'animation A-Frame
-
-      // Mise à jour de l'UI
       document.getElementById('select-position').value = posKey;
       populateDateDropdown(posData);
 
       const vrText = document.querySelector('#vr-info-display');
       if (vrText) {
-        vrText.setAttribute('value', `${lieuObj.label || lieuKey} - ${posKey} | ${currentDateStr}\n(Manette: A/B pour changer d'année)`);
+        vrText.setAttribute('value', `${lieuObj.label || lieuKey} - ${posKey} | ${newDateStr}\n(Manette: A/B pour changer d'année)`);
       }
     }
 
@@ -698,7 +742,7 @@ function toggleEditorMode(enabled) {
     function populateDateDropdown(posData) {
       const select = document.getElementById('select-date');
       select.innerHTML = '';
-      if (!posData || !posData.photos) return;
+      if (!posData || !posData.photos || posData.photos.length === 0) return;
 
       posData.photos.forEach((photoPath, idx) => {
         const opt = document.createElement('option');
@@ -706,6 +750,8 @@ function toggleEditorMode(enabled) {
         opt.innerText = extractDate(photoPath);
         select.appendChild(opt);
       });
+      
+      // Sélectionner la date actuellement chargée
       select.value = posData.currentDateIdx;
     }
 

@@ -2,11 +2,11 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>StreetView Multi-Lieux VR</title>
+  <title>StreetView Multi-Lieux VR - Mode Éditeur</title>
   <!-- Chargement A-Frame local -->
   <script src="aframe.min.js"></script>
   <style>
-    /* Interface 2D sur PC / Mobile (Positionnée en haut à gauche) */
+    /* Interface 2D en haut à gauche */
     #ui-container {
       position: absolute;
       top: 15px;
@@ -16,9 +16,10 @@
       flex-direction: column;
       gap: 10px;
       font-family: Arial, sans-serif;
+      max-width: 280px;
     }
     .ui-panel {
-      background: rgba(0, 0, 0, 0.75);
+      background: rgba(0, 0, 0, 0.85);
       padding: 12px 16px;
       border-radius: 12px;
       color: white;
@@ -26,8 +27,7 @@
       flex-direction: column;
       gap: 10px;
       backdrop-filter: blur(5px);
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-      min-width: 200px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
     .ui-group {
       display: flex;
@@ -35,39 +35,104 @@
       gap: 4px;
     }
     .ui-group label {
-      font-size: 12px;
+      font-size: 11px;
       color: #aaa;
       text-transform: uppercase;
       font-weight: bold;
     }
-    select {
+    select, button {
       background: #222;
       color: white;
       border: 1px solid #555;
       padding: 8px 12px;
       border-radius: 6px;
-      font-size: 14px;
+      font-size: 13px;
       cursor: pointer;
       outline: none;
-      transition: border-color 0.2s;
+      transition: all 0.2s;
     }
-    select:hover {
+    select:hover, button:hover {
       border-color: #007bff;
+    }
+    .btn-primary {
+      background: #007bff;
+      border-color: #0056b3;
+      font-weight: bold;
+    }
+    .btn-primary:hover {
+      background: #0056b3;
+    }
+    .btn-success {
+      background: #28a745;
+      border-color: #1e7e34;
+      font-weight: bold;
+    }
+    .btn-success:hover {
+      background: #218838;
+    }
+    .btn-danger {
+      background: #dc3545;
+      border-color: #bd2130;
+      font-weight: bold;
+    }
+    .btn-active {
+      border: 2px solid #00ffcc !important;
+      background: #114433 !important;
+    }
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .checkbox-container input {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
     }
     #error-msg {
       color: #ff6b6b;
       font-weight: bold;
-      font-size: 14px;
+      font-size: 13px;
+    }
+    /* Modal de liaison de flèche */
+    #link-modal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1000;
+      background: rgba(15, 15, 15, 0.95);
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid #007bff;
+      color: white;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 280px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+      font-family: Arial, sans-serif;
     }
   </style>
 </head>
 <body>
 
-  <!-- UI 2D (Listes déroulantes en haut à gauche) -->
+  <!-- UI 2D (Gauche) -->
   <div id="ui-container">
     <div id="error-msg"></div>
     
     <div class="ui-panel" id="main-panel" style="display:none;">
+      <!-- Toggle Mode Éditeur -->
+      <label class="checkbox-container">
+        <input type="checkbox" id="toggle-editor" onchange="toggleEditorMode(this.checked)">
+        <span>🛠️ <b>Mode Éditeur</b></span>
+      </label>
+
+      <hr style="border: 0; border-top: 1px solid #444; margin: 2px 0;">
+
       <!-- Sélecteur de LIEU -->
       <div class="ui-group">
         <label for="select-lieu">📍 Lieu :</label>
@@ -86,6 +151,38 @@
         <select id="select-date" onchange="onDateChange(this.value)"></select>
       </div>
     </div>
+
+    <!-- PANNEAU MODE ÉDITEUR -->
+    <div class="ui-panel" id="editor-panel" style="display:none;">
+      <div class="ui-group">
+        <label>Outils Éditeur :</label>
+        <button id="btn-add-arrow" class="btn-primary btn-active" onclick="setEditorTool('add-arrow')">📍 Poser une flèche</button>
+      </div>
+      <p style="font-size: 11px; color: #ccc; margin: 0;">
+        • Clic sur le sol pour placer une flèche.<br>
+        • Glisser-Déposer pour la déplacer.<br>
+        • Clic sur une flèche pour la configurer/supprimer.
+      </p>
+      <button class="btn-success" onclick="saveConfiguration()">💾 Sauvegarder (config.json)</button>
+    </div>
+  </div>
+
+  <!-- MODAL DE LIAISON DE FLÈCHE -->
+  <div id="link-modal">
+    <h4 style="margin:0;">Destination de la flèche</h4>
+    <div class="ui-group">
+      <label>Lieu cible :</label>
+      <select id="modal-select-lieu" onchange="updateModalPositions()"></select>
+    </div>
+    <div class="ui-group">
+      <label>Position cible :</label>
+      <select id="modal-select-position"></select>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <button class="btn-primary" style="flex:1;" onclick="confirmArrowLink()">Valider</button>
+      <button class="btn-danger" id="modal-btn-delete" style="display:none;" onclick="deleteSelectedArrow()">Supprimer</button>
+      <button style="flex:1;" onclick="closeModal()">Annuler</button>
+    </div>
   </div>
 
   <a-scene webxr="optionalFeatures: hit-test, local-floor">
@@ -93,14 +190,17 @@
       <img id="fleche-img" src="assets/fleche.png">
     </a-assets>
 
-    <!-- Caméra avec inversion des mouvements de souris -->
-    <a-entity camera look-controls="reverseMouseDrag: true" position="0 1.6 0"></a-entity>
+    <!-- Caméra avec inversion des mouvements de souris et contrôle du FOV (Zoom) -->
+    <a-entity id="main-camera" camera="fov: 80" look-controls="reverseMouseDrag: true" position="0 1.6 0" zoom-controls></a-entity>
 
-    <!-- Photo 360 en fond avec effet de fondu -->
+    <!-- Photo 360 en fond -->
     <a-sky id="background" src="" 
            animation__fadeout="property: components.material.material.opacity; type: opacity; from: 1; to: 0; dur: 300; startEvents: fade-out" 
            animation__fadein="property: components.material.material.opacity; type: opacity; from: 0; to: 1; dur: 300; startEvents: fade-in">
     </a-sky>
+
+    <!-- Dôme invisible de collision pour placer les flèches en mode éditeur -->
+    <a-entity id="editor-raycast-sphere" geometry="primitive: sphere; radius: 10" material="visible: false; side: double" class="editor-surface"></a-entity>
 
     <!-- Panneau 3D d'informations en VR -->
     <a-text id="vr-info-display" value="" position="0 2.5 -3" align="center" color="#FFFFFF" width="6" visible="false"></a-text>
@@ -109,7 +209,7 @@
     <a-entity id="leftHand" laser-controls="hand: left" raycaster="objects: .raycastable"></a-entity>
     <a-entity id="rightHand" laser-controls="hand: right" raycaster="objects: .raycastable" controller-buttons></a-entity>
 
-    <!-- Conteneur des flèches interactives au sol -->
+    <!-- Conteneur des flèches interactives -->
     <a-entity id="navigation-nodes"></a-entity>
   </a-scene>
 
@@ -118,7 +218,14 @@
     let currentLieuKey = "";
     let currentPosKey = "";
 
-    // Extraire "MOIS-ANNEE" depuis le chemin du fichier (ex: POSITION1_08-2026.jpg)
+    // État Éditeur
+    let isEditorMode = false;
+    let isHasUnsavedChanges = false;
+    let activeTool = 'add-arrow'; // 'add-arrow' ou null
+    let pendingArrowIntersection = null;
+    let selectedArrowIndex = -1;
+    let draggedArrowEl = null;
+
     function extractDate(filePath) {
       if (!filePath) return "";
       const fileName = filePath.split('/').pop();
@@ -128,68 +235,69 @@
     }
 
     // ==========================================
-    // 1. INITIALISATION DE L'APPLICATION
+    // 1. COMPOSANTS CUSTOM AFRAME
+    // ==========================================
+
+    // Composant Zoom à la molette
+    AFRAME.registerComponent('zoom-controls', {
+      init: function () {
+        this.minFov = 30;
+        this.maxFov = 100;
+        window.addEventListener('wheel', (e) => {
+          let camera = this.el.getAttribute('camera');
+          let currentFov = camera.fov;
+          let delta = e.deltaY * 0.05;
+          let newFov = Math.min(Math.max(currentFov + delta, this.minFov), this.maxFov);
+          this.el.setAttribute('camera', 'fov', newFov);
+        });
+      }
+    });
+
+    // ==========================================
+    // 2. INITIALISATION
     // ==========================================
     async function initApp() {
       try {
         const response = await fetch('config.json');
-        if (!response.ok) {
-          throw new Error(`Erreur HTTP status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`Status: ${response.status}`);
         APP_DATA = await response.json();
 
         const lieuxKeys = Object.keys(APP_DATA);
-        if (lieuxKeys.length === 0) {
-          document.getElementById('error-msg').innerText = "Le fichier config.json est vide !";
-          return;
-        }
+        if (lieuxKeys.length === 0) return;
 
-        // Initialisation des index de date par défaut (la photo la plus récente)
         lieuxKeys.forEach(lieu => {
           if (APP_DATA[lieu].positions) {
             Object.keys(APP_DATA[lieu].positions).forEach(pos => {
               const posData = APP_DATA[lieu].positions[pos];
-              if (posData.photos && posData.photos.length > 0) {
-                posData.currentDateIdx = posData.photos.length - 1;
-              } else {
-                posData.currentDateIdx = 0;
-              }
+              posData.currentDateIdx = (posData.photos && posData.photos.length > 0) ? posData.photos.length - 1 : 0;
+              if (!posData.arrows) posData.arrows = [];
             });
           }
         });
 
-        // Afficher le panneau principal
         document.getElementById('main-panel').style.display = 'flex';
-
-        // Remplir le sélecteur de lieux
         populateLieuDropdown();
-
-        // Charger le premier lieu
-        currentLieuKey = lieuxKeys[0];
-        selectLieu(currentLieuKey);
+        selectLieu(lieuxKeys[0]);
+        initEditorInteractions();
 
       } catch (error) {
-        console.error("Erreur d'initialisation :", error);
-        document.getElementById('error-msg').innerText = "Impossible de charger config.json. Vérifiez qu'il est présent à la racine !";
+        console.error("Erreur init :", error);
+        document.getElementById('error-msg').innerText = "Erreur de chargement de config.json !";
       }
     }
 
     // ==========================================
-    // 2. GESTION DE LA NAVIGATION
+    // 3. LOGIQUE NAVIGATION
     // ==========================================
 
     function selectLieu(lieuKey) {
       if (!APP_DATA[lieuKey]) return;
       currentLieuKey = lieuKey;
       const lieuData = APP_DATA[lieuKey];
-      
-      // Sélectionne la position par défaut ou la première disponible
       currentPosKey = lieuData.defaultPosition || Object.keys(lieuData.positions)[0];
 
-      // Mettre à jour les sélecteurs déroulants
       document.getElementById('select-lieu').value = lieuKey;
       populatePositionDropdown(lieuData);
-
       loadPanorama(currentLieuKey, currentPosKey);
     }
 
@@ -201,35 +309,25 @@
       if (!lieuObj || !lieuObj.positions[posKey]) return;
 
       const posData = lieuObj.positions[posKey];
-
-      if (dateIndex !== null) {
-        posData.currentDateIdx = dateIndex;
-      }
-
+      if (dateIndex !== null) posData.currentDateIdx = dateIndex;
       if (!posData.photos || posData.photos.length === 0) return;
 
       const photoPath = posData.photos[posData.currentDateIdx];
       const currentDateStr = extractDate(photoPath);
 
-      // A. Animation de transition du fond
       const sky = document.querySelector('#background');
       sky.emit('fade-out');
-
       setTimeout(() => {
         sky.setAttribute('src', photoPath);
         sky.emit('fade-in');
       }, 300);
 
-      // B. Mettre à jour la liste déroulante des positions & dates
       document.getElementById('select-position').value = posKey;
       populateDateDropdown(posData);
 
-      // C. Mettre à jour le texte d'information 3D en VR
       const vrText = document.querySelector('#vr-info-display');
-      const lieuLabel = lieuObj.label || lieuKey;
-      vrText.setAttribute('value', `${lieuLabel} - ${posKey} | ${currentDateStr}\n(Manette: A/B pour changer d'année)`);
+      vrText.setAttribute('value', `${lieuObj.label || lieuKey} - ${posKey} | ${currentDateStr}\n(Manette: A/B pour changer d'année)`);
 
-      // D. Afficher les flèches de navigation au sol
       renderArrows(posData.arrows || []);
     }
 
@@ -237,16 +335,29 @@
       const nodesContainer = document.querySelector('#navigation-nodes');
       nodesContainer.innerHTML = '';
 
-      arrowsData.forEach(arrow => {
+      arrowsData.forEach((arrow, idx) => {
         const el = document.createElement('a-image');
-        el.setAttribute('class', 'raycastable');
+        el.setAttribute('class', 'raycastable arrow-node');
         el.setAttribute('src', '#fleche-img');
         el.setAttribute('position', arrow.pos);
-        el.setAttribute('rotation', arrow.rot);
+        el.setAttribute('rotation', arrow.rot || "-90 0 0");
         el.setAttribute('scale', '1.5 1.5 1.5');
+        el.dataset.index = idx;
 
-        el.addEventListener('click', () => {
-          loadPanorama(currentLieuKey, arrow.targetPos);
+        // Clic sur la flèche
+        el.addEventListener('click', (evt) => {
+          if (isEditorMode) {
+            evt.stopPropagation();
+            openLinkModal(idx);
+          } else {
+            // Se déplacer vers la cible
+            if (arrow.targetLieu && arrow.targetLieu !== currentLieuKey) {
+              selectLieu(arrow.targetLieu);
+              loadPanorama(arrow.targetLieu, arrow.targetPos);
+            } else {
+              loadPanorama(currentLieuKey, arrow.targetPos);
+            }
+          }
         });
 
         nodesContainer.appendChild(el);
@@ -254,7 +365,187 @@
     }
 
     // ==========================================
-    // 3. GESTION DES SELECTORS (DROPDOWNS)
+    // 4. MODE ÉDITEUR DE FLÈCHES
+    // ==========================================
+
+    function toggleEditorMode(enabled) {
+      if (!enabled && isHasUnsavedChanges) {
+        if (!confirm("Vous avez des modifications non sauvegardées. Voulez-vous vraiment quitter sans sauvegarder ?")) {
+          document.getElementById('toggle-editor').checked = true;
+          return;
+        }
+      }
+      isEditorMode = enabled;
+      document.getElementById('editor-panel').style.display = enabled ? 'flex' : 'none';
+      document.getElementById('editor-raycast-sphere').setAttribute('class', enabled ? 'editor-surface raycastable' : 'editor-surface');
+    }
+
+    function setEditorTool(tool) {
+      activeTool = tool;
+      document.getElementById('btn-add-arrow').classList.toggle('btn-active', tool === 'add-arrow');
+    }
+
+    function initEditorInteractions() {
+      const sceneEl = document.querySelector('a-scene');
+
+      // Clic sur le dôme invisible pour placer une flèche
+      sceneEl.addEventListener('click', (evt) => {
+        if (!isEditorMode || activeTool !== 'add-arrow') return;
+        
+        let intersection = evt.detail.intersection;
+        if (intersection && intersection.object.el.classList.contains('editor-surface')) {
+          let point = intersection.point;
+          // Placer la flèche à 4m de distance max dans cette direction pour garder une bonne échelle
+          let dir = new THREE.Vector3(point.x, point.y, point.z).normalize().multiplyScalar(4);
+          
+          pendingArrowIntersection = {
+            pos: `${dir.x.toFixed(2)} ${dir.y.toFixed(2)} ${dir.z.toFixed(2)}`,
+            rot: "-90 0 0"
+          };
+          openLinkModal(-1);
+        }
+      });
+
+      // Drag and Drop 3D des flèches en mode Éditeur
+      sceneEl.addEventListener('mousedown', (evt) => {
+        if (!isEditorMode) return;
+        let intersection = evt.detail.intersection;
+        if (intersection && intersection.object.el.classList.contains('arrow-node')) {
+          draggedArrowEl = intersection.object.el;
+        }
+      });
+
+      sceneEl.addEventListener('mousemove', (evt) => {
+        if (!isEditorMode || !draggedArrowEl) return;
+        let intersection = evt.detail.intersection;
+        if (intersection && intersection.point) {
+          let point = intersection.point;
+          let dir = new THREE.Vector3(point.x, point.y, point.z).normalize().multiplyScalar(4);
+          let newPos = `${dir.x.toFixed(2)} ${dir.y.toFixed(2)} ${dir.z.toFixed(2)}`;
+          draggedArrowEl.setAttribute('position', newPos);
+          
+          let idx = parseInt(draggedArrowEl.dataset.index, 10);
+          APP_DATA[currentLieuKey].positions[currentPosKey].arrows[idx].pos = newPos;
+          isHasUnsavedChanges = true;
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        draggedArrowEl = null;
+      });
+    }
+
+    function openLinkModal(arrowIdx) {
+      selectedArrowIndex = arrowIdx;
+      const modal = document.getElementById('link-modal');
+      const deleteBtn = document.getElementById('modal-btn-delete');
+      modal.style.display = 'flex';
+
+      populateModalLieux();
+
+      if (arrowIdx >= 0) {
+        // Édition d'une flèche existante
+        deleteBtn.style.display = 'block';
+        let arrow = APP_DATA[currentLieuKey].positions[currentPosKey].arrows[arrowIdx];
+        document.getElementById('modal-select-lieu').value = arrow.targetLieu || currentLieuKey;
+        updateModalPositions();
+        document.getElementById('modal-select-position').value = arrow.targetPos;
+      } else {
+        // Nouvelle flèche
+        deleteBtn.style.display = 'none';
+        document.getElementById('modal-select-lieu').value = currentLieuKey;
+        updateModalPositions();
+      }
+    }
+
+    function populateModalLieux() {
+      const select = document.getElementById('modal-select-lieu');
+      select.innerHTML = '';
+      Object.keys(APP_DATA).forEach(lieuKey => {
+        const opt = document.createElement('option');
+        opt.value = lieuKey;
+        opt.innerText = APP_DATA[lieuKey].label || lieuKey;
+        select.appendChild(opt);
+      });
+    }
+
+    function updateModalPositions() {
+      const targetLieu = document.getElementById('modal-select-lieu').value;
+      const select = document.getElementById('modal-select-position');
+      select.innerHTML = '';
+      
+      if (APP_DATA[targetLieu] && APP_DATA[targetLieu].positions) {
+        Object.keys(APP_DATA[targetLieu].positions).forEach(posKey => {
+          const opt = document.createElement('option');
+          opt.value = posKey;
+          opt.innerText = posKey;
+          select.appendChild(opt);
+        });
+      }
+    }
+
+    function confirmArrowLink() {
+      const targetLieu = document.getElementById('modal-select-lieu').value;
+      const targetPos = document.getElementById('modal-select-position').value;
+      const arrows = APP_DATA[currentLieuKey].positions[currentPosKey].arrows;
+
+      if (selectedArrowIndex >= 0) {
+        // Mettre à jour la flèche existante
+        arrows[selectedArrowIndex].targetLieu = targetLieu;
+        arrows[selectedArrowIndex].targetPos = targetPos;
+      } else if (pendingArrowIntersection) {
+        // Ajouter une nouvelle flèche
+        arrows.push({
+          targetLieu: targetLieu,
+          targetPos: targetPos,
+          pos: pendingArrowIntersection.pos,
+          rot: pendingArrowIntersection.rot
+        });
+      }
+
+      isHasUnsavedChanges = true;
+      closeModal();
+      renderArrows(arrows);
+    }
+
+    function deleteSelectedArrow() {
+      if (selectedArrowIndex >= 0) {
+        APP_DATA[currentLieuKey].positions[currentPosKey].arrows.splice(selectedArrowIndex, 1);
+        isHasUnsavedChanges = true;
+        renderArrows(APP_DATA[currentLieuKey].positions[currentPosKey].arrows);
+      }
+      closeModal();
+    }
+
+    function closeModal() {
+      document.getElementById('link-modal').style.display = 'none';
+      selectedArrowIndex = -1;
+      pendingArrowIntersection = null;
+    }
+
+    function saveConfiguration() {
+      // Nettoyer les propriétés temporaires JS avant export
+      let dataToExport = JSON.parse(JSON.stringify(APP_DATA));
+      Object.keys(dataToExport).forEach(lieu => {
+        Object.keys(dataToExport[lieu].positions).forEach(pos => {
+          delete dataToExport[lieu].positions[pos].currentDateIdx;
+        });
+      });
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToExport, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "config.json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+
+      isHasUnsavedChanges = false;
+      alert("✅ Fichier config.json téléchargé ! Remplacez votre fichier sur le serveur.");
+    }
+
+    // ==========================================
+    // 5. DROPDOWNS & UI HANDLERS
     // ==========================================
 
     function populateLieuDropdown() {
@@ -296,21 +587,12 @@
       select.value = posData.currentDateIdx;
     }
 
-    // Handlers pour l'événement 'onchange'
-    function onLieuChange(lieuKey) {
-      selectLieu(lieuKey);
-    }
-
-    function onPositionChange(posKey) {
-      loadPanorama(currentLieuKey, posKey);
-    }
-
-    function onDateChange(dateIdx) {
-      loadPanorama(currentLieuKey, currentPosKey, parseInt(dateIdx, 10));
-    }
+    function onLieuChange(lieuKey) { selectLieu(lieuKey); }
+    function onPositionChange(posKey) { loadPanorama(currentLieuKey, posKey); }
+    function onDateChange(dateIdx) { loadPanorama(currentLieuKey, currentPosKey, parseInt(dateIdx, 10)); }
 
     // ==========================================
-    // 4. MANETTES META QUEST 3 & VR
+    // 6. MANETTES VR & DEPART
     // ==========================================
 
     function cycleDate(direction) {
@@ -338,7 +620,6 @@
       document.querySelector('#vr-info-display').setAttribute('visible', 'false');
     });
 
-    // Lancement au chargement
     window.onload = initApp;
   </script>
 </body>

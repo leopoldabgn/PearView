@@ -5,7 +5,7 @@ from datetime import datetime
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 PORT = 8000
-BACKUP_DIR = 'backup'
+BACKUP_DIR = 'backups'
 MAX_BACKUPS = 20
 
 def save_with_backup(data_bytes):

@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>StreetView Multi-Lieux VR - Mode Éditeur</title>
+  <title>StreetView Multi-Lieux VR - Mode Éditeur Fixé</title>
   <!-- Chargement A-Frame local -->
   <script src="aframe.min.js"></script>
   <style>
@@ -59,16 +59,10 @@
       border-color: #0056b3;
       font-weight: bold;
     }
-    .btn-primary:hover {
-      background: #0056b3;
-    }
     .btn-success {
       background: #28a745;
       border-color: #1e7e34;
       font-weight: bold;
-    }
-    .btn-success:hover {
-      background: #218838;
     }
     .btn-danger {
       background: #dc3545;
@@ -97,6 +91,26 @@
       font-weight: bold;
       font-size: 13px;
     }
+    /* Réticule viseur central pour mode édition sur PC */
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 14px;
+      height: 14px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 998;
+      display: none;
+    }
+    #crosshair::before, #crosshair::after {
+      content: '';
+      position: absolute;
+      background: #00ffcc;
+    }
+    #crosshair::before { top: 6px; left: 0; width: 14px; height: 2px; }
+    #crosshair::after { top: 0; left: 6px; width: 2px; height: 14px; }
+
     /* Modal de liaison de flèche */
     #link-modal {
       position: absolute;
@@ -119,6 +133,9 @@
   </style>
 </head>
 <body>
+
+  <!-- Réticule viseur pour poser avec précision en mode éditeur -->
+  <div id="crosshair"></div>
 
   <!-- UI 2D (Gauche) -->
   <div id="ui-container">
@@ -156,13 +173,14 @@
     <div class="ui-panel" id="editor-panel" style="display:none;">
       <div class="ui-group">
         <label>Outils Éditeur :</label>
-        <button id="btn-add-arrow" class="btn-primary btn-active" onclick="setEditorTool('add-arrow')">📍 Poser une flèche</button>
+        <button id="btn-add-arrow" class="btn-primary" onclick="spawnArrowAtCenter()">➕ Poser flèche au centre</button>
       </div>
       <p style="font-size: 11px; color: #ccc; margin: 0;">
-        • Clic sur le sol pour placer une flèche.<br>
-        • Glisser-Déposer pour la déplacer.<br>
+        • Orientez la vue et cliquez sur <b>"Poser flèche au centre"</b>.<br>
+        • Ou faites un <b>Shift + Clic</b> sur le sol pour viser directement.<br>
         • Clic sur une flèche pour la configurer/supprimer.
       </p>
+
       <button class="btn-success" onclick="saveConfiguration()">💾 Sauvegarder (config.json)</button>
     </div>
   </div>
@@ -190,8 +208,10 @@
       <img id="fleche-img" src="assets/fleche.png">
     </a-assets>
 
-    <!-- Caméra avec inversion des mouvements de souris et contrôle du FOV (Zoom) -->
-    <a-entity id="main-camera" camera="fov: 80" look-controls="reverseMouseDrag: true" position="0 1.6 0" zoom-controls></a-entity>
+    <!-- Caméra avec curseur souris + Zoom -->
+    <a-entity id="main-camera" camera="fov: 80" look-controls="reverseMouseDrag: true" position="0 1.6 0" zoom-controls>
+      <a-entity cursor="rayOrigin: mouse" raycaster="objects: .raycastable"></a-entity>
+    </a-entity>
 
     <!-- Photo 360 en fond -->
     <a-sky id="background" src="" 
@@ -199,8 +219,8 @@
            animation__fadein="property: components.material.material.opacity; type: opacity; from: 0; to: 1; dur: 300; startEvents: fade-in">
     </a-sky>
 
-    <!-- Dôme invisible de collision pour placer les flèches en mode éditeur -->
-    <a-entity id="editor-raycast-sphere" geometry="primitive: sphere; radius: 10" material="visible: false; side: double" class="editor-surface"></a-entity>
+    <!-- Dôme invisible pour détecter les clics de pose de flèche -->
+    <a-entity id="editor-sphere" geometry="primitive: sphere; radius: 10" material="visible: false; side: double" class="editor-surface"></a-entity>
 
     <!-- Panneau 3D d'informations en VR -->
     <a-text id="vr-info-display" value="" position="0 2.5 -3" align="center" color="#FFFFFF" width="6" visible="false"></a-text>
@@ -221,10 +241,8 @@
     // État Éditeur
     let isEditorMode = false;
     let isHasUnsavedChanges = false;
-    let activeTool = 'add-arrow'; // 'add-arrow' ou null
     let pendingArrowIntersection = null;
     let selectedArrowIndex = -1;
-    let draggedArrowEl = null;
 
     function extractDate(filePath) {
       if (!filePath) return "";
@@ -238,10 +256,9 @@
     // 1. COMPOSANTS CUSTOM AFRAME
     // ==========================================
 
-    // Composant Zoom à la molette
     AFRAME.registerComponent('zoom-controls', {
       init: function () {
-        this.minFov = 30;
+        this.minFov = 10;
         this.maxFov = 100;
         window.addEventListener('wheel', (e) => {
           let camera = this.el.getAttribute('camera');
@@ -278,7 +295,7 @@
         document.getElementById('main-panel').style.display = 'flex';
         populateLieuDropdown();
         selectLieu(lieuxKeys[0]);
-        initEditorInteractions();
+        setupShiftClickPlacement();
 
       } catch (error) {
         console.error("Erreur init :", error);
@@ -337,20 +354,18 @@
 
       arrowsData.forEach((arrow, idx) => {
         const el = document.createElement('a-image');
-        el.setAttribute('class', 'raycastable arrow-node');
+        el.setAttribute('class', 'raycastable');
         el.setAttribute('src', '#fleche-img');
         el.setAttribute('position', arrow.pos);
         el.setAttribute('rotation', arrow.rot || "-90 0 0");
         el.setAttribute('scale', '1.5 1.5 1.5');
-        el.dataset.index = idx;
 
-        // Clic sur la flèche
+        // Clic sur une flèche
         el.addEventListener('click', (evt) => {
           if (isEditorMode) {
             evt.stopPropagation();
             openLinkModal(idx);
           } else {
-            // Se déplacer vers la cible
             if (arrow.targetLieu && arrow.targetLieu !== currentLieuKey) {
               selectLieu(arrow.targetLieu);
               loadPanorama(arrow.targetLieu, arrow.targetPos);
@@ -365,7 +380,7 @@
     }
 
     // ==========================================
-    // 4. MODE ÉDITEUR DE FLÈCHES
+    // 4. MODE ÉDITEUR & POSE DE FLÈCHE SÉCURISÉE
     // ==========================================
 
     function toggleEditorMode(enabled) {
@@ -377,27 +392,50 @@
       }
       isEditorMode = enabled;
       document.getElementById('editor-panel').style.display = enabled ? 'flex' : 'none';
-      document.getElementById('editor-raycast-sphere').setAttribute('class', enabled ? 'editor-surface raycastable' : 'editor-surface');
+      document.getElementById('crosshair').style.display = enabled ? 'block' : 'none';
+      
+      const sphere = document.getElementById('editor-sphere');
+      if (enabled) {
+        sphere.setAttribute('class', 'editor-surface raycastable');
+      } else {
+        sphere.setAttribute('class', 'editor-surface');
+      }
     }
 
-    function setEditorTool(tool) {
-      activeTool = tool;
-      document.getElementById('btn-add-arrow').classList.toggle('btn-active', tool === 'add-arrow');
+    // METHODE 1 : Poser au centre de l'écran (Là où pointe le viseur)
+    function spawnArrowAtCenter() {
+      const cameraEl = document.querySelector('#main-camera');
+      const cameraObj = cameraEl.getObject3D('camera');
+      
+      // Obtenir le vecteur directionnel de la caméra
+      let dir = new THREE.Vector3(0, 0, -1);
+      dir.applyQuaternion(cameraObj.quaternion);
+      
+      // Ajuster pour placer au sol devant à 4m
+      dir.multiplyScalar(4);
+      dir.y = -1; // Force le placement vers le sol
+
+      pendingArrowIntersection = {
+        pos: `${dir.x.toFixed(2)} ${dir.y.toFixed(2)} ${dir.z.toFixed(2)}`,
+        rot: "-90 0 0"
+      };
+
+      openLinkModal(-1);
     }
 
-    function initEditorInteractions() {
+    // METHODE 2 : Shift + Clic sur le sol pour poser précisément sans tourner la vue
+    function setupShiftClickPlacement() {
       const sceneEl = document.querySelector('a-scene');
 
-      // Clic sur le dôme invisible pour placer une flèche
       sceneEl.addEventListener('click', (evt) => {
-        if (!isEditorMode || activeTool !== 'add-arrow') return;
-        
+        if (!isEditorMode || !evt.shiftKey) return;
+
         let intersection = evt.detail.intersection;
-        if (intersection && intersection.object.el.classList.contains('editor-surface')) {
+        if (intersection) {
           let point = intersection.point;
-          // Placer la flèche à 4m de distance max dans cette direction pour garder une bonne échelle
           let dir = new THREE.Vector3(point.x, point.y, point.z).normalize().multiplyScalar(4);
-          
+          dir.y = -1; // Placement au sol
+
           pendingArrowIntersection = {
             pos: `${dir.x.toFixed(2)} ${dir.y.toFixed(2)} ${dir.z.toFixed(2)}`,
             rot: "-90 0 0"
@@ -405,35 +443,11 @@
           openLinkModal(-1);
         }
       });
-
-      // Drag and Drop 3D des flèches en mode Éditeur
-      sceneEl.addEventListener('mousedown', (evt) => {
-        if (!isEditorMode) return;
-        let intersection = evt.detail.intersection;
-        if (intersection && intersection.object.el.classList.contains('arrow-node')) {
-          draggedArrowEl = intersection.object.el;
-        }
-      });
-
-      sceneEl.addEventListener('mousemove', (evt) => {
-        if (!isEditorMode || !draggedArrowEl) return;
-        let intersection = evt.detail.intersection;
-        if (intersection && intersection.point) {
-          let point = intersection.point;
-          let dir = new THREE.Vector3(point.x, point.y, point.z).normalize().multiplyScalar(4);
-          let newPos = `${dir.x.toFixed(2)} ${dir.y.toFixed(2)} ${dir.z.toFixed(2)}`;
-          draggedArrowEl.setAttribute('position', newPos);
-          
-          let idx = parseInt(draggedArrowEl.dataset.index, 10);
-          APP_DATA[currentLieuKey].positions[currentPosKey].arrows[idx].pos = newPos;
-          isHasUnsavedChanges = true;
-        }
-      });
-
-      window.addEventListener('mouseup', () => {
-        draggedArrowEl = null;
-      });
     }
+
+    // ==========================================
+    // 5. MODAL DE CONFIGURATION & LIAISON
+    // ==========================================
 
     function openLinkModal(arrowIdx) {
       selectedArrowIndex = arrowIdx;
@@ -444,14 +458,12 @@
       populateModalLieux();
 
       if (arrowIdx >= 0) {
-        // Édition d'une flèche existante
         deleteBtn.style.display = 'block';
         let arrow = APP_DATA[currentLieuKey].positions[currentPosKey].arrows[arrowIdx];
         document.getElementById('modal-select-lieu').value = arrow.targetLieu || currentLieuKey;
         updateModalPositions();
         document.getElementById('modal-select-position').value = arrow.targetPos;
       } else {
-        // Nouvelle flèche
         deleteBtn.style.display = 'none';
         document.getElementById('modal-select-lieu').value = currentLieuKey;
         updateModalPositions();
@@ -490,11 +502,9 @@
       const arrows = APP_DATA[currentLieuKey].positions[currentPosKey].arrows;
 
       if (selectedArrowIndex >= 0) {
-        // Mettre à jour la flèche existante
         arrows[selectedArrowIndex].targetLieu = targetLieu;
         arrows[selectedArrowIndex].targetPos = targetPos;
       } else if (pendingArrowIntersection) {
-        // Ajouter une nouvelle flèche
         arrows.push({
           targetLieu: targetLieu,
           targetPos: targetPos,
@@ -524,7 +534,6 @@
     }
 
     function saveConfiguration() {
-      // Nettoyer les propriétés temporaires JS avant export
       let dataToExport = JSON.parse(JSON.stringify(APP_DATA));
       Object.keys(dataToExport).forEach(lieu => {
         Object.keys(dataToExport[lieu].positions).forEach(pos => {
@@ -541,11 +550,11 @@
       downloadAnchor.remove();
 
       isHasUnsavedChanges = false;
-      alert("✅ Fichier config.json téléchargé ! Remplacez votre fichier sur le serveur.");
+      alert("✅ Fichier config.json sauvegardé ! Remplacez votre fichier sur le serveur.");
     }
 
     // ==========================================
-    // 5. DROPDOWNS & UI HANDLERS
+    // 6. UI & DROPDOWNS
     // ==========================================
 
     function populateLieuDropdown() {
@@ -592,7 +601,7 @@
     function onDateChange(dateIdx) { loadPanorama(currentLieuKey, currentPosKey, parseInt(dateIdx, 10)); }
 
     // ==========================================
-    // 6. MANETTES VR & DEPART
+    // 7. MANETTES VR & DEPART
     // ==========================================
 
     function cycleDate(direction) {

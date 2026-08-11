@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>StreetView Multi-Lieux VR</title>
+  <!-- Chargement A-Frame local -->
   <script src="aframe.min.js"></script>
   <style>
     /* Interface 2D sur PC / Mobile */
@@ -43,19 +44,24 @@
       border-color: #0056b3;
       font-weight: bold;
     }
+    #error-msg {
+      color: #ff6b6b;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
 
   <!-- UI 2D (PC / Navigateur) -->
   <div id="ui-container">
+    <div id="error-msg"></div>
     <!-- Barre de choix du LIEU -->
-    <div class="ui-bar">
+    <div class="ui-bar" id="bar-lieu" style="display:none;">
       <span>📍 <b>Lieu :</b></span>
       <div id="location-buttons"></div>
     </div>
     <!-- Barre de choix de la DATE -->
-    <div class="ui-bar">
+    <div class="ui-bar" id="bar-date" style="display:none;">
       <span>📅 <b>Date :</b></span>
       <div id="date-buttons"></div>
     </div>
@@ -84,72 +90,101 @@
   </a-scene>
 
   <script>
-    // ==========================================
-    // 1. CONFIGURATION DES LIEUX & POSITIONS
-    // ==========================================
     let APP_DATA = {};
     let currentLieuKey = "";
     let currentPosKey = "";
 
-    // Charger la configuration JSON au démarrage
+    // Extraire "MOIS-ANNEE" depuis le chemin du fichier (ex: POSITION1_08-2026.jpg)
+    function extractDate(filePath) {
+      if (!filePath) return "";
+      const fileName = filePath.split('/').pop();
+      const nameWithoutExt = fileName.replace('.jpg', '').replace('.jpeg', '').replace('.png', '');
+      const parts = nameWithoutExt.split('_');
+      return parts[parts.length - 1];
+    }
+
+    // ==========================================
+    // 1. INITIALISATION DE L'APPLICATION (FETCH CONFIG)
+    // ==========================================
     async function initApp() {
       try {
         const response = await fetch('config.json');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         APP_DATA = await response.json();
 
-        // Initialisation des données dynamiques (index de date par défaut)
-        Object.keys(APP_DATA).forEach(lieu => {
-          Object.keys(APP_DATA[lieu].positions).forEach(pos => {
-            // Sélectionne la photo la plus récente par défaut
-            APP_DATA[lieu].positions[pos].currentDateIdx = 
-              APP_DATA[lieu].positions[pos].photos.length - 1;
-          });
+        const lieuxKeys = Object.keys(APP_DATA);
+        if (lieuxKeys.length === 0) {
+          document.getElementById('error-msg').innerText = "Le fichier config.json est vide !";
+          return;
+        }
+
+        // Initialisation des index de date par défaut (la photo la plus récente)
+        lieuxKeys.forEach(lieu => {
+          if (APP_DATA[lieu].positions) {
+            Object.keys(APP_DATA[lieu].positions).forEach(pos => {
+              const posData = APP_DATA[lieu].positions[pos];
+              if (posData.photos && posData.photos.length > 0) {
+                posData.currentDateIdx = posData.photos.length - 1;
+              } else {
+                posData.currentDateIdx = 0;
+              }
+            });
+          }
         });
 
-        // Charger le premier lieu disponible
-        currentLieuKey = Object.keys(APP_DATA)[0];
+        // Afficher les barres UI
+        document.getElementById('bar-lieu').style.display = 'flex';
+        document.getElementById('bar-date').style.display = 'flex';
+
+        // Charger le premier lieu
+        currentLieuKey = lieuxKeys[0];
         renderLieuButtons();
         selectLieu(currentLieuKey);
 
       } catch (error) {
-        console.error("Erreur lors du chargement du fichier config.json :", error);
+        console.error("Erreur lors de l'initialisation :", error);
+        document.getElementById('error-msg').innerText = "Impossible de charger config.json. Vérifiez que le fichier existe à la racine !";
       }
     }
 
-    // Lancement au chargement de la page
-    window.onload = initApp;
-
-    // Extraire "MOIS-ANNEE" depuis le chemin du fichier
-    function extractDate(filePath) {
-      const fileName = filePath.split('/').pop(); // Obtient ex: "POSITION1_08-2026.jpg"
-      const nameWithoutExt = fileName.replace('.jpg', '').replace('.jpeg', '');
-      const parts = nameWithoutExt.split('_');
-      return parts[parts.length - 1]; // Renvoie "08-2026"
-    }
-
     // ==========================================
-    // 2. FONCTIONS DE CHARGEMENT & MISE À JOUR
+    // 2. NAVIGATION ET LOGIQUE
     // ==========================================
 
-    // Charger un nouveau Lieu
     function selectLieu(lieuKey) {
+      if (!APP_DATA[lieuKey]) {
+        console.error(`Le lieu ${lieuKey} n'existe pas dans APP_DATA.`);
+        return;
+      }
       currentLieuKey = lieuKey;
       const lieuData = APP_DATA[lieuKey];
-      currentPosKey = lieuData.defaultPosition;
+      currentPosKey = lieuData.defaultPosition || Object.keys(lieuData.positions)[0];
       
       renderLieuButtons();
       loadPanorama(currentLieuKey, currentPosKey);
     }
 
-    // Charger un Panorama précis
     function loadPanorama(lieuKey, posKey, dateIndex = null) {
       currentLieuKey = lieuKey;
       currentPosKey = posKey;
       
-      const posData = APP_DATA[lieuKey].positions[posKey];
+      const lieuObj = APP_DATA[lieuKey];
+      if (!lieuObj || !lieuObj.positions[posKey]) {
+        console.error(`Position non trouvée : ${lieuKey} -> ${posKey}`);
+        return;
+      }
+
+      const posData = lieuObj.positions[posKey];
 
       if (dateIndex !== null) {
         posData.currentDateIdx = dateIndex;
+      }
+
+      if (!posData.photos || posData.photos.length === 0) {
+        console.error("Aucune photo pour cette position.");
+        return;
       }
 
       const photoPath = posData.photos[posData.currentDateIdx];
@@ -169,17 +204,16 @@
 
       // C. Mettre à jour le texte 3D pour le Quest 3
       const vrText = document.querySelector('#vr-info-display');
-      const lieuLabel = APP_DATA[lieuKey].label;
+      const lieuLabel = lieuObj.label || lieuKey;
       vrText.setAttribute('value', `${lieuLabel} | ${currentDateStr}\n(Manette: A/B pour changer d'année)`);
 
       // D. Afficher les flèches au sol
-      renderArrows(posData.arrows);
+      renderArrows(posData.arrows || []);
     }
 
-    // Générer les flèches 3D à plat au sol
     function renderArrows(arrowsData) {
       const nodesContainer = document.querySelector('#navigation-nodes');
-      nodesContainer.innerHTML = ''; // Nettoyer les anciennes flèches
+      nodesContainer.innerHTML = '';
 
       arrowsData.forEach(arrow => {
         const el = document.createElement('a-image');
@@ -187,9 +221,8 @@
         el.setAttribute('src', '#fleche-img');
         el.setAttribute('position', arrow.pos);
         el.setAttribute('rotation', arrow.rot);
-        el.setAttribute('scale', '1.5 1.5 1.5'); // Taille de la flèche
+        el.setAttribute('scale', '1.5 1.5 1.5');
 
-        // Événement Clic (Gâchette Quest 3 ou Clic Souris)
         el.addEventListener('click', () => {
           loadPanorama(currentLieuKey, arrow.targetPos);
         });
@@ -199,7 +232,7 @@
     }
 
     // ==========================================
-    // 3. GENERATION DE L'INTERFACE 2D
+    // 3. UI GENERATION
     // ==========================================
 
     function renderLieuButtons() {
@@ -209,7 +242,7 @@
       Object.keys(APP_DATA).forEach(lieuKey => {
         const btn = document.createElement('button');
         btn.className = `btn ${lieuKey === currentLieuKey ? 'active' : ''}`;
-        btn.innerText = APP_DATA[lieuKey].label;
+        btn.innerText = APP_DATA[lieuKey].label || lieuKey;
         btn.onclick = () => selectLieu(lieuKey);
         container.appendChild(btn);
       });
@@ -218,6 +251,8 @@
     function renderDateButtons(posData) {
       const container = document.getElementById('date-buttons');
       container.innerHTML = '';
+
+      if (!posData.photos) return;
 
       posData.photos.forEach((photoPath, idx) => {
         const btn = document.createElement('button');
@@ -228,9 +263,10 @@
       });
     }
 
-    // Change la date via les boutons de la manette VR
     function cycleDate(direction) {
       const posData = APP_DATA[currentLieuKey].positions[currentPosKey];
+      if (!posData || !posData.photos) return;
+
       let newIdx = posData.currentDateIdx + direction;
 
       if (newIdx >= posData.photos.length) newIdx = 0;
@@ -239,15 +275,14 @@
       loadPanorama(currentLieuKey, currentPosKey, newIdx);
     }
 
-    // Composant A-Frame pour capturer les boutons A/B du Meta Quest 3
+    // Composant A-Frame pour capturer les boutons A/B du Quest 3
     AFRAME.registerComponent('controller-buttons', {
       init: function () {
-        this.el.addEventListener('abuttondown', () => cycleDate(1));  // Bouton A = Année suivante
-        this.el.addEventListener('bbuttondown', () => cycleDate(-1)); // Bouton B = Année précédente
+        this.el.addEventListener('abuttondown', () => cycleDate(1));
+        this.el.addEventListener('bbuttondown', () => cycleDate(-1));
       }
     });
 
-    // Gestion du mode immersif VR
     document.querySelector('a-scene').addEventListener('enter-vr', () => {
       document.querySelector('#vr-info-display').setAttribute('visible', 'true');
     });
@@ -255,11 +290,8 @@
       document.querySelector('#vr-info-display').setAttribute('visible', 'false');
     });
 
-    // Lancement au chargement de la page
-    window.onload = () => {
-      renderLieuButtons();
-      selectLieu(currentLieuKey);
-    };
+    // Démarrage de l'application
+    window.onload = initApp;
   </script>
 </body>
 </html>

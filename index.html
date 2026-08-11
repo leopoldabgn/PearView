@@ -2,239 +2,424 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>StreetView Multi-Lieux VR</title>
-  <script src="aframe.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>PearView · 360°</title>
+  <script src="lib/aframe.min.js"></script>
   <style>
-    /* Interface 2D en haut à gauche */
+    /* ==========================================================
+       DESIGN TOKENS — thème "Pear View"
+       Palette pensée pour un instrument de mesure du temps :
+       ardoise profonde + laiton/cuivre (photo ancienne) + cyan
+       (repère spatial), typo mono pour tout ce qui date/mesure.
+       ========================================================== */
+    :root {
+      --bg-panel: rgba(12, 16, 21, 0.88);
+      --bg-panel-solid: #0c1015;
+      --border: rgba(255, 255, 255, 0.09);
+      --border-strong: rgba(255, 255, 255, 0.18);
+      --text-primary: #F1EEE7;
+      --text-muted: #8B95A3;
+      --cross-air:var(--accent-space);
+      --accent-time: #E8A24B;     /* cuivre — tout ce qui touche à la date */
+      --accent-time-dim: #7a5a30;
+      --old-accent-space: #33D6C0;    /* cyan — tout ce qui touche au lieu/nav */
+      --accent-space: #33d654;    /* cyan — tout ce qui touche au lieu/nav */
+      --accent-space-dim: #1c732a;
+      --danger: #E5584D;
+      --success: #3dd65e;
+      --radius: 10px;
+      --radius-sm: 6px;
+      --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { margin: 0; height: 100%; overflow: hidden; font-family: var(--font-ui); }
+
+    a-scene { position: absolute; inset: 0; }
+
+    /* ==========================================================
+       PANNEAU PRINCIPAL (haut-gauche)
+       ========================================================== */
     #ui-container {
       position: absolute;
-      top: 15px;
-      left: 15px;
+      top: 14px;
+      left: 14px;
       z-index: 999;
       display: flex;
       flex-direction: column;
       gap: 10px;
-      font-family: Arial, sans-serif;
       max-width: 300px;
     }
+
     .ui-panel {
-      background: rgba(0, 0, 0, 0.85);
-      padding: 12px 16px;
-      border-radius: 12px;
-      color: white;
+      background: var(--bg-panel);
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      backdrop-filter: blur(5px);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      gap: 12px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+      animation: panel-in .35s ease;
     }
-    .ui-group {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .ui-group label {
-      font-size: 11px;
-      color: #aaa;
-      text-transform: uppercase;
-      font-weight: bold;
-    }
-    select, button {
-      background: #222;
-      color: white;
-      border: 1px solid #555;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 13px;
-      cursor: pointer;
-      outline: none;
-      transition: all 0.2s;
-    }
-    select:hover, button:hover {
-      border-color: #007bff;
-    }
-    .btn-primary {
-      background: #007bff;
-      border-color: #0056b3;
-      font-weight: bold;
-    }
-    .btn-success {
-      background: #28a745;
-      border-color: #1e7e34;
-      font-weight: bold;
-    }
-    .btn-danger {
-      background: #dc3545;
-      border-color: #bd2130;
-      font-weight: bold;
-    }
-    .btn-tool {
-      background: #333;
-      padding: 6px 10px;
-      font-size: 12px;
-    }
-    .checkbox-container {
+    @keyframes panel-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+    .panel-title {
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: 14px;
-      cursor: pointer;
-      user-select: none;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--accent-space);
+      font-weight: 700;
     }
-    .checkbox-container input {
-      width: 18px;
-      height: 18px;
-      cursor: pointer;
+    .panel-title .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-space); box-shadow: 0 0 6px var(--accent-space); }
+
+    .ui-group { display: flex; flex-direction: column; gap: 4px; }
+    .ui-group label {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 600;
     }
-    #error-msg {
-      color: #ff6b6b;
-      font-weight: bold;
+
+    select, button, input[type=text], textarea {
+      background: #171c23;
+      color: var(--text-primary);
+      border: 1px solid var(--border-strong);
+      padding: 9px 11px;
+      border-radius: var(--radius-sm);
       font-size: 13px;
+      font-family: var(--font-ui);
+      cursor: pointer;
+      outline: none;
+      transition: border-color .15s, background .15s;
     }
-    /* Viseur central pour le mode édition */
-    #crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 16px;
-      height: 16px;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 998;
+    select:hover, button:hover { border-color: var(--accent-space); }
+    select:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible {
+      border-color: var(--accent-space);
+      box-shadow: 0 0 0 2px rgba(51,214,192,.25);
+    }
+    textarea { resize: vertical; font-family: var(--font-ui); cursor: text; }
+    input[type=text] { cursor: text; }
+
+    /* Sélecteur de date : traitement "tampon photo" mono/cuivre — élément signature */
+    #select-date {
+      font-family: var(--font-mono);
+      color: var(--accent-time);
+      font-weight: 700;
+      letter-spacing: .04em;
+      border-color: var(--accent-time-dim);
+      background: #1a140b;
+    }
+    #select-date:hover { border-color: var(--accent-time); }
+
+    .btn-primary { background: var(--accent-space-dim); border-color: var(--accent-space); font-weight: 700; }
+    .btn-primary:hover { background: var(--accent-space); color: #04211d; }
+    .btn-success { background: #184d34; border-color: var(--success); font-weight: 700; }
+    .btn-success:hover { background: var(--success); color: #04291a; }
+    .btn-danger { background: #4a1c19; border-color: var(--danger); font-weight: 700; }
+    .btn-danger:hover { background: var(--danger); color: #2a0a08; }
+    .btn-tool { background: #171c23; padding: 7px 6px; font-size: 12px; text-align: center; }
+    .btn-tool.active-tool { border-color: var(--accent-time); color: var(--accent-time); }
+
+    .checkbox-container { display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer; user-select: none; }
+    .checkbox-container input { width: 17px; height: 17px; cursor: pointer; accent-color: var(--accent-space); }
+
+    hr.sep { border: 0; border-top: 1px solid var(--border); margin: 0; }
+
+    #error-msg { color: var(--danger); font-weight: 600; font-size: 12.5px; }
+
+    /* Bouton flottant pour replier le panneau sur mobile */
+    #panel-toggle {
       display: none;
-    }
-    #crosshair::before, #crosshair::after {
-      content: '';
       position: absolute;
-      background: #00ffcc;
-      box-shadow: 0 0 4px rgba(0,255,200,0.8);
+      top: 14px; left: 14px;
+      z-index: 1001;
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      font-size: 18px;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(10px);
     }
+
+    /* ==========================================================
+       VISEUR ÉDITEUR
+       ========================================================== */
+    #crosshair {
+      position: absolute; top: 50%; left: 50%;
+      width: 16px; height: 16px;
+      transform: translate(-50%, -50%);
+      pointer-events: none; z-index: 998; display: none;
+    }
+    #crosshair::before, #crosshair::after { content: ''; position: absolute; background: var(--cross-air); box-shadow: 0 0 5px var(--cross-air); }
     #crosshair::before { top: 7px; left: 0; width: 16px; height: 2px; }
     #crosshair::after { top: 0; left: 7px; width: 2px; height: 16px; }
 
-    /* Modal de liaison et d'ajustement de la flèche (Décalé à droite et semi-transparent) */
-    #link-modal {
+    /* ==========================================================
+       BOUSSOLE / MINI-CARTE (haut-droite)
+       ========================================================== */
+    #compass-wrap {
       position: absolute;
-      top: 70%;
-      left: 40%;
-      transform: translateY(-50%);
+      top: 14px; right: 14px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    }
+    #compass-svg { width: 92px; height: 92px; }
+    #compass-label {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-muted);
+      letter-spacing: .06em;
+      text-align: center;
+    }
+    #compass-here { color: var(--accent-space); font-weight: 700; }
+
+    /* ==========================================================
+       MODALES (config flèche / hotspot)
+       ========================================================== */
+    .modal {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
       z-index: 1000;
-      background: rgba(15, 15, 15, 0.75);
+      background: rgba(12, 16, 21, 0.94);
       padding: 18px;
-      border-radius: 12px;
-      border: 1px solid rgba(0, 123, 255, 0.6);
-      color: white;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
       display: none;
       flex-direction: column;
       gap: 10px;
-      min-width: 310px;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
-      font-family: Arial, sans-serif;
+      width: min(340px, 92vw);
+      max-height: 86vh;
+      overflow-y: auto;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.6);
     }
-    
-    .nudge-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 5px;
-      margin: 4px 0;
+    .modal h4 { margin: 0; font-size: 14px; letter-spacing: .04em; }
+    .modal.accent-space { border-color: var(--accent-space); }
+    .modal.accent-time { border-color: var(--accent-time); }
+
+    .nudge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 4px 0; }
+
+    /* Panneau d'infos hotspot (mode consultation) */
+    #hotspot-info {
+      position: absolute;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 999;
+      width: min(420px, 90vw);
+      background: var(--bg-panel);
+      border: 1px solid var(--accent-time-dim);
+      border-radius: var(--radius);
+      padding: 16px;
+      color: var(--text-primary);
+      display: none;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.55);
     }
+    #hotspot-info h4 { margin: 0 0 8px; color: var(--accent-time); font-size: 15px; }
+    #hotspot-info p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.5; color: var(--text-primary); }
+    #hotspot-info img { width: 100%; border-radius: var(--radius-sm); display: block; margin-bottom: 8px; }
+    #hotspot-info .close-x { position: absolute; top: 8px; right: 10px; cursor: pointer; color: var(--text-muted); font-size: 16px; background: none; border: none; padding: 4px; }
+
+    /* ==========================================================
+       RESPONSIVE MOBILE
+       ========================================================== */
+    @media (max-width: 640px) {
+      #ui-container { max-width: calc(100vw - 76px); transition: transform .25s ease, opacity .25s ease; }
+      #ui-container.collapsed { transform: translateX(-120%); opacity: 0; pointer-events: none; }
+      #panel-toggle { display: flex; }
+      #compass-wrap { padding: 8px; top: 62px; }
+      #compass-svg { width: 68px; height: 68px; }
+      #hotspot-info { bottom: 14px; width: calc(100vw - 24px); }
+    }
+
+    /* Timer de chargement discret */
+    #load-indicator {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      z-index: 997; color: var(--text-muted); font-family: var(--font-mono); font-size: 12px;
+      opacity: 0; transition: opacity .2s; pointer-events: none; letter-spacing: .08em;
+    }
+    #load-indicator.visible { opacity: 1; }
   </style>
 </head>
 <body>
 
-  <!-- Viseur vert au centre -->
   <div id="crosshair"></div>
+  <div id="load-indicator">CHARGEMENT…</div>
 
-  <!-- UI 2D -->
+  <button id="panel-toggle" onclick="togglePanelCollapse()">☰</button>
+
+  <!-- UI 2D principale -->
   <div id="ui-container">
     <div id="error-msg"></div>
-    
+
     <div class="ui-panel" id="main-panel" style="display:none;">
-      <!-- Toggle Mode Éditeur -->
+      <!-- <div class="panel-title"><span class="dot"></span>PEAR'VIEW</div> -->
+      <div class="panel-title"><img src="favicon.ico" style="width:20px;height:20px;border-radius:2px;"> PEAR'VIEW</div>
       <label class="checkbox-container">
         <input type="checkbox" id="toggle-editor" onchange="toggleEditorMode(this.checked)">
-        <span>🛠️ <b>Mode Éditeur</b></span>
+        <span>🛠️ Mode éditeur</span>
       </label>
 
-      <hr style="border: 0; border-top: 1px solid #444; margin: 2px 0;">
+      <hr class="sep">
 
-      <!-- Sélecteur de LIEU -->
       <div class="ui-group">
-        <label for="select-lieu">📍 Lieu :</label>
+        <label for="select-lieu">📍 Lieu</label>
         <select id="select-lieu" onchange="onLieuChange(this.value)"></select>
       </div>
 
-      <!-- Sélecteur de POSITION -->
       <div class="ui-group">
-        <label for="select-position">🎯 Position :</label>
+        <label for="select-position">🎯 Position</label>
         <select id="select-position" onchange="onPositionChange(this.value)"></select>
       </div>
 
-      <!-- Sélecteur de DATE -->
       <div class="ui-group">
-        <label for="select-date">📅 Date :</label>
+        <label for="select-date">📅 Époque</label>
         <select id="select-date" onchange="onDateChange(this.value)"></select>
       </div>
     </div>
 
     <!-- PANNEAU MODE ÉDITEUR -->
     <div class="ui-panel" id="editor-panel" style="display:none;">
+      <div class="panel-title" style="color:var(--accent-time);"><span class="dot" style="background:var(--accent-time); box-shadow:0 0 6px var(--accent-time);"></span>ÉDITION</div>
+
       <div class="ui-group">
-        <label>Outil de pose :</label>
-        <button id="btn-add-arrow" class="btn-primary" onclick="spawnArrowAtCenter()">➕ Poser flèche au viseur</button>
+        <label>Outils de pose</label>
+        <button id="btn-add-arrow" class="btn-primary" onclick="spawnItemAtCenter('arrow')">➕ Flèche de navigation</button>
+        <button id="btn-add-hotspot" onclick="spawnItemAtCenter('hotspot')" style="border-color: var(--accent-time-dim);">ℹ️ Point d'information</button>
       </div>
-      <p style="font-size: 11px; color: #ccc; margin: 0;">
+      <p style="font-size: 11px; color: var(--text-muted); margin: 0; line-height:1.5;">
         1. Visez l'endroit voulu au sol.<br>
-        2. Cliquez sur <b>"Poser flèche au viseur"</b>.<br>
-        3. Cliquez sur une flèche pour la déplacer pas-à-pas, l'agrandir ou la relier.
+        2. Choisissez un outil ci-dessus.<br>
+        3. Cliquez sur un élément posé pour l'ajuster, le relier ou le supprimer.
       </p>
 
       <button class="btn-success" onclick="saveConfiguration()">💾 Sauvegarder sur le serveur</button>
     </div>
   </div>
 
-  <!-- MODAL DE CONFIGURATION & DÉPLACEMENT PAS-À-PAS -->
-  <div id="link-modal">
-    <h4 style="margin:0; font-size:15px;">Configuration de la flèche</h4>
-    
+  <!-- BOUSSOLE -->
+  <div id="compass-wrap">
+    <svg id="compass-svg" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+      <text x="50" y="14" text-anchor="middle" fill="#8B95A3" font-size="9" font-family="monospace">N</text>
+      <text x="50" y="93" text-anchor="middle" fill="#8B95A3" font-size="9" font-family="monospace">S</text>
+      <text x="8" y="53" text-anchor="middle" fill="#8B95A3" font-size="9" font-family="monospace">O</text>
+      <text x="92" y="53" text-anchor="middle" fill="#8B95A3" font-size="9" font-family="monospace">E</text>
+      <g id="compass-needle">
+        <polygon points="50,14 45,50 55,50" fill="#33D6C0"/>
+        <polygon points="50,86 45,50 55,50" fill="#4a5561"/>
+      </g>
+      <circle cx="50" cy="50" r="3.5" fill="#0c1015" stroke="#33D6C0" stroke-width="1.5"/>
+    </svg>
+    <div id="compass-label">Ici : <span id="compass-here">—</span></div>
+  </div>
+
+  <!-- Panneau d'infos hotspot -->
+  <div id="hotspot-info">
+    <button class="close-x" onclick="closeHotspotInfo()">✕</button>
+    <h4 id="hotspot-info-title"></h4>
+    <img id="hotspot-info-img" style="display:none;">
+    <p id="hotspot-info-text"></p>
+  </div>
+
+  <!-- MODAL DE CONFIGURATION FLÈCHE -->
+  <div id="link-modal" class="modal accent-space">
+    <h4>🔗 Configuration de la flèche</h4>
+
     <div class="ui-group">
-      <label>Lieu cible :</label>
+      <label>Lieu cible</label>
       <select id="modal-select-lieu" onchange="updateModalPositions()"></select>
     </div>
     <div class="ui-group">
-      <label>Position cible :</label>
+      <label>Position cible</label>
       <select id="modal-select-position"></select>
     </div>
 
-    <!-- Section Déplacement pas-à-pas -->
-    <div id="arrow-adjustment-section" style="display:none; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px;">
-      <label style="font-size:11px; color:#aaa; font-weight:bold; text-transform:uppercase;">Ajuster la position :</label>
-      
-      <!-- Contrôles Avancer / Reculer / Côtés / Rotations -->
+    <div id="arrow-adjustment-section" style="display:none; border-top: 1px solid var(--border); padding-top: 8px;">
+      <label style="font-size:11px; color:var(--text-muted); font-weight:bold; text-transform:uppercase;">Ajuster la position</label>
       <div class="nudge-grid">
-        <button class="btn-tool" onclick="nudgeArrow('rot', 15)">⟲ Pivoter G.</button>
-        <button class="btn-tool" onclick="nudgeArrow('forward', 0.5)">⬆️ Avancer</button>
-        <button class="btn-tool" onclick="nudgeArrow('rot', -15)">⟳ Pivoter D.</button>
-        <button class="btn-tool" onclick="nudgeArrow('strafe', 0.5)">⬅️ Gauche</button>
-        <button class="btn-tool" onclick="nudgeArrow('forward', -0.5)">⬇️ Reculer</button>
-        <button class="btn-tool" onclick="nudgeArrow('strafe', -0.5)">➡️ Droite</button>
-      </div>
-
-      <!-- Hauteur & Taille -->
-      <div style="display:flex; gap:5px; margin-top:4px;">
-        <button class="btn-tool" style="flex:1;" onclick="nudgeArrow('height', 0.2)">🔼 Monter</button>
-        <button class="btn-tool" style="flex:1;" onclick="nudgeArrow('height', -0.2)">🔽 Descendre</button>
+        <button class="btn-tool" onclick="nudgeSelected('rot', 15)">⟲ Pivoter G.</button>
+        <button class="btn-tool" onclick="nudgeSelected('forward', 0.5)">⬆️ Avancer</button>
+        <button class="btn-tool" onclick="nudgeSelected('rot', -15)">⟳ Pivoter D.</button>
+        <button class="btn-tool" onclick="nudgeSelected('strafe', 0.5)">⬅️ Gauche</button>
+        <button class="btn-tool" onclick="nudgeSelected('forward', -0.5)">⬇️ Reculer</button>
+        <button class="btn-tool" onclick="nudgeSelected('strafe', -0.5)">➡️ Droite</button>
       </div>
       <div style="display:flex; gap:5px; margin-top:4px;">
-        <button class="btn-tool" style="flex:1;" onclick="nudgeArrow('scale', 0.2)">🔍 + Grossir</button>
-        <button class="btn-tool" style="flex:1;" onclick="nudgeArrow('scale', -0.2)">🔎 - Maigrir</button>
+        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('height', 0.2)">🔼 Monter</button>
+        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('height', -0.2)">🔽 Descendre</button>
+      </div>
+      <div style="display:flex; gap:5px; margin-top:4px;">
+        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('scale', 0.2)">🔍 + Grossir</button>
+        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('scale', -0.2)">🔎 − Maigrir</button>
       </div>
     </div>
 
     <div style="display:flex; gap:8px; margin-top:8px;">
       <button class="btn-primary" style="flex:1;" onclick="confirmArrowLink()">Valider</button>
-      <button class="btn-danger" id="modal-btn-delete" style="display:none;" onclick="deleteSelectedArrow()">Supprimer</button>
+      <button class="btn-danger" id="modal-btn-delete" style="display:none;" onclick="deleteSelectedItem()">Supprimer</button>
+      <button style="flex:1;" onclick="closeModal()">Fermer</button>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONFIGURATION HOTSPOT -->
+  <div id="hotspot-modal" class="modal accent-time">
+    <h4>ℹ️ Point d'information</h4>
+
+    <div class="ui-group">
+      <label>Titre</label>
+      <input type="text" id="hotspot-title" placeholder="Ex : L'ancienne fontaine">
+    </div>
+    <div class="ui-group">
+      <label>Texte</label>
+      <textarea id="hotspot-text" rows="3" placeholder="Détails, anecdote, source…"></textarea>
+    </div>
+    <div class="ui-group">
+      <label>Image (URL ou chemin, optionnel)</label>
+      <input type="text" id="hotspot-image" placeholder="assets/photos/fontaine.jpg">
+    </div>
+
+    <div id="hotspot-adjustment-section" style="display:none; border-top: 1px solid var(--border); padding-top: 8px;">
+      <label style="font-size:11px; color:var(--text-muted); font-weight:bold; text-transform:uppercase;">Ajuster la position</label>
+      <div class="nudge-grid">
+        <button class="btn-tool" onclick="nudgeSelected('rot', 15)">⟲ Pivoter G.</button>
+        <button class="btn-tool" onclick="nudgeSelected('forward', 0.5)">⬆️ Avancer</button>
+        <button class="btn-tool" onclick="nudgeSelected('rot', -15)">⟳ Pivoter D.</button>
+        <button class="btn-tool" onclick="nudgeSelected('strafe', 0.5)">⬅️ Gauche</button>
+        <button class="btn-tool" onclick="nudgeSelected('forward', -0.5)">⬇️ Reculer</button>
+        <button class="btn-tool" onclick="nudgeSelected('strafe', -0.5)">➡️ Droite</button>
+      </div>
+      <div style="display:flex; gap:5px; margin-top:4px;">
+        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('height', 0.2)">🔼 Monter</button>
+        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('height', -0.2)">🔽 Descendre</button>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <button class="btn-primary" style="flex:1;" onclick="confirmHotspot()">Valider</button>
+      <button class="btn-danger" id="hotspot-btn-delete" style="display:none;" onclick="deleteSelectedItem()">Supprimer</button>
       <button style="flex:1;" onclick="closeModal()">Fermer</button>
     </div>
   </div>
@@ -242,36 +427,40 @@
   <a-scene webxr="optionalFeatures: hit-test, local-floor">
     <a-assets>
       <img id="fleche-img" src="assets/fleche.png">
+      <img id="hotspot-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><circle cx='32' cy='32' r='27' fill='%23E8A24B' stroke='%23ffffff' stroke-width='3'/><text x='32' y='43' font-size='32' font-family='Georgia,serif' font-weight='bold' text-anchor='middle' fill='%23ffffff'>i</text></svg>">
     </a-assets>
 
-    <!-- Caméra avec curseur souris + Zoom adaptatif -->
-    <a-entity id="main-camera" camera="fov: 80" look-controls="reverseMouseDrag: true" position="0 1.6 0" zoom-controls>
+    <a-entity id="main-camera" camera="fov: 80" look-controls="reverseMouseDrag: true" position="0 1.6 0" zoom-controls compass-tracker>
       <a-entity cursor="rayOrigin: mouse" raycaster="objects: .raycastable"></a-entity>
     </a-entity>
 
-    <!-- Photo 360 en fond -->
-    <a-sky id="background" src="" 
-           animation__fadeout="property: components.material.material.opacity; type: opacity; from: 1; to: 0; dur: 300; startEvents: fade-out" 
-           animation__fadein="property: components.material.material.opacity; type: opacity; from: 0; to: 1; dur: 300; startEvents: fade-in">
+    <a-sky id="background" src=""
+           animation__fadeout="property: components.material.material.opacity; type: opacity; from: 1; to: 0; dur: 320; startEvents: fade-out"
+           animation__fadein="property: components.material.material.opacity; type: opacity; from: 0; to: 1; dur: 320; startEvents: fade-in">
     </a-sky>
 
-    <!-- Panneau 3D d'informations en VR -->
     <a-text id="vr-info-display" value="" position="0 2.5 -3" align="center" color="#FFFFFF" width="6" visible="false"></a-text>
+    <a-entity id="vr-hotspot-display" visible="false" position="0 1.9 -2.6">
+      <a-plane color="#0c1015" opacity="0.85" width="2.6" height="1.3"></a-plane>
+      <a-text id="vr-hotspot-title" value="" position="0 0.45 0.01" align="center" color="#E8A24B" width="3.2"></a-text>
+      <a-text id="vr-hotspot-text" value="" position="0 0.05 0.01" align="center" color="#FFFFFF" width="2.6" wrap-count="42"></a-text>
+    </a-entity>
 
-    <!-- Manettes Meta Quest 3 -->
     <a-entity id="leftHand" laser-controls="hand: left" raycaster="objects: .raycastable"></a-entity>
     <a-entity id="rightHand" laser-controls="hand: right" raycaster="objects: .raycastable" controller-buttons></a-entity>
 
-    <!-- Conteneur des flèches interactives -->
     <a-entity id="navigation-nodes"></a-entity>
+    <a-entity id="hotspot-nodes"></a-entity>
   </a-scene>
 
   <script>
     // =========================================================================
-    // PARAMÈTRES PERSONNALISABLES
+    // PARAMÈTRES
     // =========================================================================
-    const ARROW_SPAWN_DISTANCE = 6.0; // Distance en mètres où apparaît la flèche
-    const ARROW_SPAWN_HEIGHT   = -1.0; // Hauteur au sol
+    const ARROW_SPAWN_DISTANCE = 6.0;
+    const HOTSPOT_SPAWN_DISTANCE = 4.0;
+    const SPAWN_HEIGHT = -1.0;
+    const FADE_MS = 320;
 
     let APP_DATA = {};
     let currentLieuKey = "";
@@ -279,63 +468,91 @@
 
     let isEditorMode = false;
     let isHasUnsavedChanges = false;
-    let pendingArrowData = null;
-    let selectedArrowIndex = -1;
+    let pendingItemType = null;      // 'arrow' | 'hotspot' — en attente de configuration
+    let pendingItemData = null;
+    let selectedItem = null;         // { type: 'arrow'|'hotspot', index: n }
 
+    // =========================================================================
+    // UTILITAIRES
+    // =========================================================================
     function extractDate(filePath) {
       if (!filePath) return "";
       const fileName = filePath.split('/').pop();
-      const nameWithoutExt = fileName.replace('.jpg', '').replace('.jpeg', '').replace('.png', '');
+      const nameWithoutExt = fileName.replace(/\.(jpg|jpeg|png)$/i, '');
       const parts = nameWithoutExt.split('_');
       return parts[parts.length - 1];
     }
 
+    function showLoading(state) {
+      document.getElementById('load-indicator').classList.toggle('visible', state);
+    }
+
+    function togglePanelCollapse() {
+      document.getElementById('ui-container').classList.toggle('collapsed');
+    }
+
     // ==========================================
-    // 1. ZOOM AVEC SENSIBILITÉ SOURIS ADAPTATIVE
+    // ZOOM AVEC SENSIBILITÉ SOURIS ADAPTATIVE
     // ==========================================
     AFRAME.registerComponent('zoom-controls', {
       init: function () {
         this.minFov = 10;
         this.maxFov = 100;
-        this.baseFov = 80;
-
-        window.addEventListener('wheel', (e) => {
-          let camera = this.el.getAttribute('camera');
-          let currentFov = camera.fov;
-          let delta = e.deltaY * 0.05;
-          let newFov = Math.min(Math.max(currentFov + delta, this.minFov), this.maxFov);
+        this._onWheel = (e) => {
+          const camera = this.el.getAttribute('camera');
+          const delta = e.deltaY * 0.05;
+          const newFov = Math.min(Math.max(camera.fov + delta, this.minFov), this.maxFov);
           this.el.setAttribute('camera', 'fov', newFov);
-        });
+        };
+        window.addEventListener('wheel', this._onWheel, { passive: true });
+      },
+      remove: function () { window.removeEventListener('wheel', this._onWheel); }
+    });
+
+    // ==========================================
+    // BOUSSOLE — suit le cap (yaw) de la caméra
+    // ==========================================
+    AFRAME.registerComponent('compass-tracker', {
+      tick: function () {
+        const lc = this.el.components['look-controls'];
+        if (!lc) return;
+        const yawDeg = THREE.MathUtils.radToDeg(lc.yawObject.rotation.y);
+        const needle = document.getElementById('compass-needle');
+        if (needle) needle.setAttribute('transform', `rotate(${-yawDeg} 50 50)`);
       }
     });
 
     // ==========================================
-    // 2. INITIALISATION
+    // INITIALISATION
     // ==========================================
     async function initApp() {
+      showLoading(true);
       try {
         const response = await fetch('config.json');
-        if (!response.ok) throw new Error(`Status: ${response.status}`);
+        if (!response.ok) throw new Error(`Statut HTTP ${response.status}`);
         APP_DATA = await response.json();
 
         const lieuxKeys = Object.keys(APP_DATA);
-        if (lieuxKeys.length === 0) return;
+        if (lieuxKeys.length === 0) {
+          document.getElementById('error-msg').innerText = "config.json est vide — lancez generate_config.py.";
+          showLoading(false);
+          return;
+        }
 
-        lieuxKeys.forEach(lieu => { 
-          if (APP_DATA[lieu].positions) {
-            Object.keys(APP_DATA[lieu].positions).forEach(pos => {
-              const posData = APP_DATA[lieu].positions[pos];
-              if (posData.photos && posData.photos.length > 0) {
-                // Par défaut, sélectionner la photo la plus récente (dernière de la liste triée)
-                if (posData.currentDateIdx === undefined || posData.currentDateIdx >= posData.photos.length) {
-                  posData.currentDateIdx = posData.photos.length - 1;
-                }
-              } else {
-                posData.currentDateIdx = 0;
+        lieuxKeys.forEach(lieu => {
+          if (!APP_DATA[lieu].positions) return;
+          Object.keys(APP_DATA[lieu].positions).forEach(pos => {
+            const posData = APP_DATA[lieu].positions[pos];
+            if (posData.photos && posData.photos.length > 0) {
+              if (posData.currentDateIdx === undefined || posData.currentDateIdx >= posData.photos.length) {
+                posData.currentDateIdx = posData.photos.length - 1;
               }
-              if (!posData.arrows) posData.arrows = [];
-            });
-          }
+            } else {
+              posData.currentDateIdx = 0;
+            }
+            if (!posData.arrows) posData.arrows = [];
+            if (!posData.hotspots) posData.hotspots = [];
+          });
         });
 
         document.getElementById('main-panel').style.display = 'flex';
@@ -344,12 +561,14 @@
 
       } catch (error) {
         console.error("Erreur init :", error);
-        document.getElementById('error-msg').innerText = "Erreur de chargement de config.json !";
+        document.getElementById('error-msg').innerText = "Erreur de chargement de config.json : " + error.message;
+      } finally {
+        showLoading(false);
       }
     }
 
     // ==========================================
-    // 3. NAVIGATION
+    // NAVIGATION
     // ==========================================
     function selectLieu(lieuKey) {
       if (!APP_DATA[lieuKey]) return;
@@ -362,22 +581,19 @@
       loadPanorama(currentLieuKey, currentPosKey);
     }
 
-    // Réinitialise la rotation de la caméra au centre (0, 0, 0)
     function resetCameraRotation() {
       const cameraEl = document.querySelector('#main-camera');
-      if (cameraEl && cameraEl.components['look-controls']) {
-        // Réinitialise la rotation de l'objet Three.js interne de look-controls
-        cameraEl.components['look-controls'].pitchObject.rotation.x = 0;
-        cameraEl.components['look-controls'].yawObject.rotation.y = 0;
+      const lc = cameraEl && cameraEl.components['look-controls'];
+      if (lc) {
+        lc.pitchObject.rotation.x = 0;
+        lc.yawObject.rotation.y = 0;
       }
     }
 
-    // Trouve l'index de la photo dont la date (MM-AAAA) est la plus proche de la date cible
     function findClosestDateIndex(photosList, targetDateStr) {
       if (!photosList || photosList.length === 0) return 0;
       if (!targetDateStr) return photosList.length - 1;
 
-      // Découper MM-AAAA cible
       const [targetMonth, targetYear] = targetDateStr.split('-').map(Number);
       const targetTotalMonths = targetYear * 12 + targetMonth;
 
@@ -388,14 +604,8 @@
         const dateStr = extractDate(photoPath);
         const [m, y] = dateStr.split('-').map(Number);
         const totalMonths = y * 12 + m;
-
         const diff = Math.abs(totalMonths - targetTotalMonths);
-
-        // Si la différence en mois est plus petite, c'est notre nouvelle date idéale
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestIndex = index;
-        }
+        if (diff < minDiff) { minDiff = diff; closestIndex = index; }
       });
 
       return closestIndex;
@@ -404,7 +614,6 @@
     function loadPanorama(lieuKey, posKey, dateIndex = null) {
       const isNewPosition = (lieuKey !== currentLieuKey || posKey !== currentPosKey);
 
-      // 1. Récupérer la date actuellement affichée avant de changer de lieu/position
       let currentDateStr = "";
       if (APP_DATA[currentLieuKey] && APP_DATA[currentLieuKey].positions[currentPosKey]) {
         const prevPos = APP_DATA[currentLieuKey].positions[currentPosKey];
@@ -415,19 +624,20 @@
 
       currentLieuKey = lieuKey;
       currentPosKey = posKey;
-      
+
       const lieuObj = APP_DATA[lieuKey];
       if (!lieuObj || !lieuObj.positions[posKey]) return;
 
       const posData = lieuObj.positions[posKey];
-      if (!posData.photos || posData.photos.length === 0) return;
+      if (!posData.photos || posData.photos.length === 0) {
+        document.getElementById('error-msg').innerText = `Aucune photo pour ${lieuKey} / ${posKey}.`;
+        return;
+      }
+      document.getElementById('error-msg').innerText = '';
 
-      // 2. Déterminer l'index de date à charger
       if (dateIndex !== null) {
-        // L'utilisateur a cliqué explicitement sur une date
         posData.currentDateIdx = dateIndex;
       } else if (isNewPosition && currentDateStr) {
-        // En cas de changement de lieu/position : cherche la date la plus proche de la précédente
         posData.currentDateIdx = findClosestDateIndex(posData.photos, currentDateStr);
       } else if (posData.currentDateIdx === undefined) {
         posData.currentDateIdx = posData.photos.length - 1;
@@ -437,37 +647,44 @@
       const newDateStr = extractDate(photoPath);
 
       const sky = document.querySelector('#background');
-      const nodesContainer = document.querySelector('#navigation-nodes');
+      const navNodes = document.querySelector('#navigation-nodes');
+      const hotspotNodes = document.querySelector('#hotspot-nodes');
 
-      // Fondu au noir
+      closeHotspotInfo();
       sky.emit('fade-out');
-      if (nodesContainer) nodesContainer.setAttribute('visible', 'false');
+      if (navNodes) navNodes.setAttribute('visible', 'false');
+      if (hotspotNodes) hotspotNodes.setAttribute('visible', 'false');
+      showLoading(true);
 
       setTimeout(() => {
         sky.setAttribute('src', photoPath);
-
-        if (isNewPosition) {
-          resetCameraRotation();
-        }
+        if (isNewPosition) resetCameraRotation();
 
         renderArrows(posData.arrows || []);
-        if (nodesContainer) nodesContainer.setAttribute('visible', 'true');
+        renderHotspots(posData.hotspots || []);
+        if (navNodes) navNodes.setAttribute('visible', 'true');
+        if (hotspotNodes) hotspotNodes.setAttribute('visible', 'true');
 
         sky.emit('fade-in');
-      }, 300);
+        showLoading(false);
+      }, FADE_MS);
 
       document.getElementById('select-position').value = posKey;
       populateDateDropdown(posData);
+      document.getElementById('compass-here').innerText = `${lieuObj.label || lieuKey} · ${posKey}`;
 
       const vrText = document.querySelector('#vr-info-display');
       if (vrText) {
-        vrText.setAttribute('value', `${lieuObj.label || lieuKey} - ${posKey} | ${newDateStr}\n(Manette: A/B pour changer d'année)`);
+        vrText.setAttribute('value', `${lieuObj.label || lieuKey} - ${posKey} | ${newDateStr}\n(Manette : A/B pour changer d'époque)`);
       }
     }
 
+    // ==========================================
+    // RENDU DES FLÈCHES DE NAVIGATION
+    // ==========================================
     function renderArrows(arrowsData) {
-      const nodesContainer = document.querySelector('#navigation-nodes');
-      nodesContainer.innerHTML = '';
+      const container = document.querySelector('#navigation-nodes');
+      container.innerHTML = '';
 
       arrowsData.forEach((arrow, idx) => {
         const el = document.createElement('a-image');
@@ -475,14 +692,14 @@
         el.setAttribute('src', '#fleche-img');
         el.setAttribute('position', arrow.pos);
         el.setAttribute('rotation', arrow.rot || "-90 0 0");
-        
-        const scaleVal = arrow.scale || "1.5 1.5 1.5";
-        el.setAttribute('scale', scaleVal);
+        el.setAttribute('scale', arrow.scale || "1.5 1.5 1.5");
+        el.setAttribute('animation__hover', 'property: scale; dir: alternate; dur: 900; loop: true; easing: easeInOutSine; to: ' +
+          scaleUp(arrow.scale || "1.5 1.5 1.5", 1.08));
 
         el.addEventListener('click', (evt) => {
           if (isEditorMode) {
             evt.stopPropagation();
-            openLinkModal(idx);
+            openArrowModal(idx);
           } else {
             if (arrow.targetLieu && arrow.targetLieu !== currentLieuKey) {
               selectLieu(arrow.targetLieu);
@@ -493,14 +710,68 @@
           }
         });
 
-        nodesContainer.appendChild(el);
+        container.appendChild(el);
       });
     }
 
+    function scaleUp(scaleStr, factor) {
+      const [x, y, z] = scaleStr.split(' ').map(Number);
+      return `${(x*factor).toFixed(2)} ${(y*factor).toFixed(2)} ${(z*factor).toFixed(2)}`;
+    }
+
     // ==========================================
-    // 4. MODE ÉDITEUR & POSE AU VISEUR
+    // RENDU DES POINTS D'INFORMATION (HOTSPOTS)
     // ==========================================
-function toggleEditorMode(enabled) {
+    function renderHotspots(hotspotsData) {
+      const container = document.querySelector('#hotspot-nodes');
+      container.innerHTML = '';
+
+      hotspotsData.forEach((hs, idx) => {
+        const el = document.createElement('a-image');
+        el.setAttribute('class', 'raycastable');
+        el.setAttribute('src', '#hotspot-img');
+        el.setAttribute('position', hs.pos);
+        el.setAttribute('rotation', hs.rot || "0 0 0");
+        el.setAttribute('scale', hs.scale || "0.8 0.8 0.8");
+        el.setAttribute('look-at', '#main-camera');
+
+        el.addEventListener('click', (evt) => {
+          evt.stopPropagation();
+          if (isEditorMode) {
+            openHotspotModal(idx);
+          } else {
+            showHotspotInfo(hs);
+          }
+        });
+
+        container.appendChild(el);
+      });
+    }
+
+    function showHotspotInfo(hs) {
+      document.getElementById('hotspot-info-title').innerText = hs.title || 'Information';
+      document.getElementById('hotspot-info-text').innerText = hs.text || '';
+      const img = document.getElementById('hotspot-info-img');
+      if (hs.image) { img.src = hs.image; img.style.display = 'block'; } else { img.style.display = 'none'; }
+      document.getElementById('hotspot-info').style.display = 'block';
+
+      // Version VR (visible uniquement en immersion casque)
+      document.getElementById('vr-hotspot-title').setAttribute('value', hs.title || 'Information');
+      document.getElementById('vr-hotspot-text').setAttribute('value', hs.text || '');
+      const vrDisplay = document.getElementById('vr-hotspot-display');
+      if (document.querySelector('a-scene').is('vr-mode')) vrDisplay.setAttribute('visible', true);
+    }
+
+    function closeHotspotInfo() {
+      document.getElementById('hotspot-info').style.display = 'none';
+      const vrDisplay = document.getElementById('vr-hotspot-display');
+      if (vrDisplay) vrDisplay.setAttribute('visible', false);
+    }
+
+    // ==========================================
+    // MODE ÉDITEUR & POSE AU VISEUR
+    // ==========================================
+    function toggleEditorMode(enabled) {
       if (!enabled && isHasUnsavedChanges) {
         if (!confirm("Vous avez des modifications non sauvegardées. Quitter sans sauvegarder ?")) {
           document.getElementById('toggle-editor').checked = true;
@@ -511,82 +782,86 @@ function toggleEditorMode(enabled) {
       document.getElementById('editor-panel').style.display = enabled ? 'flex' : 'none';
       document.getElementById('crosshair').style.display = enabled ? 'block' : 'none';
 
-      // Forcer le maintien du Reverse Mouse Drag sur la caméra
       const cameraEl = document.querySelector('#main-camera');
-      if (cameraEl) {
-        cameraEl.setAttribute('look-controls', 'reverseMouseDrag', true);
+      if (cameraEl) cameraEl.setAttribute('look-controls', 'reverseMouseDrag', true);
+    }
+
+    function getCenterSpawnTransform(distance) {
+      const cameraEl = document.querySelector('#main-camera');
+      const cameraObj = cameraEl.getObject3D('camera');
+      const dir = new THREE.Vector3();
+      cameraObj.getWorldDirection(dir);
+      const angleY = Math.atan2(dir.x, dir.z) * (180 / Math.PI) + 180;
+      return {
+        pos: `${(dir.x*distance).toFixed(2)} ${SPAWN_HEIGHT.toFixed(2)} ${(dir.z*distance).toFixed(2)}`,
+        rot: `-90 ${angleY.toFixed(1)} 0`
+      };
+    }
+
+    function spawnItemAtCenter(type) {
+      pendingItemType = type;
+      if (type === 'arrow') {
+        const t = getCenterSpawnTransform(ARROW_SPAWN_DISTANCE);
+        pendingItemData = { pos: t.pos, rot: t.rot, scale: "1.5 1.5 1.5" };
+        openArrowModal(-1);
+      } else {
+        const t = getCenterSpawnTransform(HOTSPOT_SPAWN_DISTANCE);
+        pendingItemData = { pos: t.pos, rot: "0 0 0", scale: "0.8 0.8 0.8" };
+        openHotspotModal(-1);
       }
     }
 
-    function spawnArrowAtCenter() {
-      const cameraEl = document.querySelector('#main-camera');
-      const cameraObj = cameraEl.getObject3D('camera');
-      
-      let dir = new THREE.Vector3();
-      cameraObj.getWorldDirection(dir);
-
-      let angleY = Math.atan2(dir.x, dir.z) * (180 / Math.PI) + 180;
-
-      let posX = dir.x * ARROW_SPAWN_DISTANCE;
-      let posZ = dir.z * ARROW_SPAWN_DISTANCE;
-      let posY = ARROW_SPAWN_HEIGHT;
-
-      pendingArrowData = {
-        pos: `${posX.toFixed(2)} ${posY.toFixed(2)} ${posZ.toFixed(2)}`,
-        rot: `-90 ${angleY.toFixed(1)} 0`,
-        scale: "1.5 1.5 1.5"
-      };
-
-      openLinkModal(-1);
+    // ==========================================
+    // AJUSTEMENT PAS-À-PAS (FLÈCHES ET HOTSPOTS)
+    // ==========================================
+    function getSelectedArray(type) {
+      const posData = APP_DATA[currentLieuKey].positions[currentPosKey];
+      return type === 'arrow' ? posData.arrows : posData.hotspots;
     }
 
-    // ==========================================
-    // 5. AJUSTEMENT PAS-À-PAS DES FLÈCHES (NUDGE)
-    // ==========================================
-    function nudgeArrow(type, amount) {
-      if (selectedArrowIndex < 0) return;
-      const arrows = APP_DATA[currentLieuKey].positions[currentPosKey].arrows;
-      const arrow = arrows[selectedArrowIndex];
+    function nudgeSelected(type, amount) {
+      if (!selectedItem) return;
+      const arr = getSelectedArray(selectedItem.type);
+      const item = arr[selectedItem.index];
 
-      let posParts = arrow.pos.split(' ').map(Number);
-      let rotParts = arrow.rot.split(' ').map(Number);
-
-      let x = posParts[0], y = posParts[1], z = posParts[2];
-      let rotX = rotParts[0], rotY = rotParts[1], rotZ = rotParts[2];
+      let [x, y, z] = item.pos.split(' ').map(Number);
+      let [rotX, rotY, rotZ] = (item.rot || "0 0 0").split(' ').map(Number);
 
       if (type === 'forward') {
-        let rad = (rotY - 180) * (Math.PI / 180);
-        x += Math.sin(rad) * amount;
-        z += Math.cos(rad) * amount;
+        const rad = (rotY - 180) * (Math.PI / 180);
+        x += Math.sin(rad) * amount; z += Math.cos(rad) * amount;
       } else if (type === 'strafe') {
-        let rad = (rotY - 90) * (Math.PI / 180);
-        x += Math.sin(rad) * amount;
-        z += Math.cos(rad) * amount;
+        const rad = (rotY - 90) * (Math.PI / 180);
+        x += Math.sin(rad) * amount; z += Math.cos(rad) * amount;
       } else if (type === 'height') {
         y += amount;
       } else if (type === 'rot') {
         rotY = (rotY + amount) % 360;
       } else if (type === 'scale') {
-        let currentScale = 1.5;
-        if (arrow.scale) {
-          currentScale = parseFloat(arrow.scale.split(' ')[0]);
-        }
-        currentScale = Math.max(0.3, Math.min(5.0, currentScale + amount));
-        arrow.scale = `${currentScale.toFixed(2)} ${currentScale.toFixed(2)} ${currentScale.toFixed(2)}`;
+        const parts = (item.scale || "1 1 1").split(' ').map(Number);
+        let s = Math.max(0.2, Math.min(5.0, parts[0] + amount));
+        item.scale = `${s.toFixed(2)} ${s.toFixed(2)} ${s.toFixed(2)}`;
       }
 
-      arrow.pos = `${x.toFixed(2)} ${y.toFixed(2)} ${z.toFixed(2)}`;
-      arrow.rot = `${rotX} ${rotY.toFixed(1)} ${rotZ}`;
+      item.pos = `${x.toFixed(2)} ${y.toFixed(2)} ${z.toFixed(2)}`;
+      item.rot = `${rotX} ${rotY.toFixed(1)} ${rotZ}`;
 
       isHasUnsavedChanges = true;
-      renderArrows(arrows);
+      renderArrows(APP_DATA[currentLieuKey].positions[currentPosKey].arrows);
+      renderHotspots(APP_DATA[currentLieuKey].positions[currentPosKey].hotspots);
     }
 
     // ==========================================
-    // 6. MODAL DE GESTION
+    // MODAL FLÈCHE
     // ==========================================
-    function openLinkModal(arrowIdx) {
-      selectedArrowIndex = arrowIdx;
+
+    function hideModals() {
+      document.getElementById('link-modal').style.display = 'none';
+      document.getElementById('hotspot-modal').style.display = 'none';
+    }
+
+    function openArrowModal(arrowIdx) {
+      hideModals();
       const modal = document.getElementById('link-modal');
       const deleteBtn = document.getElementById('modal-btn-delete');
       const adjustSection = document.getElementById('arrow-adjustment-section');
@@ -595,13 +870,15 @@ function toggleEditorMode(enabled) {
       populateModalLieux();
 
       if (arrowIdx >= 0) {
+        selectedItem = { type: 'arrow', index: arrowIdx };
         deleteBtn.style.display = 'block';
         adjustSection.style.display = 'block';
-        let arrow = APP_DATA[currentLieuKey].positions[currentPosKey].arrows[arrowIdx];
+        const arrow = APP_DATA[currentLieuKey].positions[currentPosKey].arrows[arrowIdx];
         document.getElementById('modal-select-lieu').value = arrow.targetLieu || currentLieuKey;
         updateModalPositions();
         document.getElementById('modal-select-position').value = arrow.targetPos;
       } else {
+        selectedItem = null;
         deleteBtn.style.display = 'none';
         adjustSection.style.display = 'none';
         document.getElementById('modal-select-lieu').value = currentLieuKey;
@@ -624,7 +901,6 @@ function toggleEditorMode(enabled) {
       const targetLieu = document.getElementById('modal-select-lieu').value;
       const select = document.getElementById('modal-select-position');
       select.innerHTML = '';
-      
       if (APP_DATA[targetLieu] && APP_DATA[targetLieu].positions) {
         Object.keys(APP_DATA[targetLieu].positions).forEach(posKey => {
           const opt = document.createElement('option');
@@ -639,17 +915,14 @@ function toggleEditorMode(enabled) {
       const targetLieu = document.getElementById('modal-select-lieu').value;
       const targetPos = document.getElementById('modal-select-position').value;
       const arrows = APP_DATA[currentLieuKey].positions[currentPosKey].arrows;
-
-      if (selectedArrowIndex >= 0) {
-        arrows[selectedArrowIndex].targetLieu = targetLieu;
-        arrows[selectedArrowIndex].targetPos = targetPos;
-      } else if (pendingArrowData) {
+      if (selectedItem && selectedItem.type === 'arrow') {
+        console.log("HELLO")
+        arrows[selectedItem.index].targetLieu = targetLieu;
+        arrows[selectedItem.index].targetPos = targetPos;
+      } else if (pendingItemData) {
         arrows.push({
-          targetLieu: targetLieu,
-          targetPos: targetPos,
-          pos: pendingArrowData.pos,
-          rot: pendingArrowData.rot,
-          scale: pendingArrowData.scale || "1.5 1.5 1.5"
+          targetLieu, targetPos,
+          pos: pendingItemData.pos, rot: pendingItemData.rot, scale: pendingItemData.scale
         });
       }
 
@@ -658,26 +931,81 @@ function toggleEditorMode(enabled) {
       renderArrows(arrows);
     }
 
-    function deleteSelectedArrow() {
-      if (selectedArrowIndex >= 0) {
-        APP_DATA[currentLieuKey].positions[currentPosKey].arrows.splice(selectedArrowIndex, 1);
-        isHasUnsavedChanges = true;
-        renderArrows(APP_DATA[currentLieuKey].positions[currentPosKey].arrows);
+    // ==========================================
+    // MODAL HOTSPOT
+    // ==========================================
+    function openHotspotModal(hotspotIdx) {
+      hideModals();
+      const modal = document.getElementById('hotspot-modal');
+      const deleteBtn = document.getElementById('hotspot-btn-delete');
+      const adjustSection = document.getElementById('hotspot-adjustment-section');
+      modal.style.display = 'flex';
+
+      if (hotspotIdx >= 0) {
+        selectedItem = { type: 'hotspot', index: hotspotIdx };
+        const hs = APP_DATA[currentLieuKey].positions[currentPosKey].hotspots[hotspotIdx];
+        document.getElementById('hotspot-title').value = hs.title || '';
+        document.getElementById('hotspot-text').value = hs.text || '';
+        document.getElementById('hotspot-image').value = hs.image || '';
+        deleteBtn.style.display = 'block';
+        adjustSection.style.display = 'block';
+      } else {
+        selectedItem = null;
+        document.getElementById('hotspot-title').value = '';
+        document.getElementById('hotspot-text').value = '';
+        document.getElementById('hotspot-image').value = '';
+        deleteBtn.style.display = 'none';
+        adjustSection.style.display = 'none';
       }
+    }
+
+    function confirmHotspot() {
+      const title = document.getElementById('hotspot-title').value.trim();
+      const text = document.getElementById('hotspot-text').value.trim();
+      const image = document.getElementById('hotspot-image').value.trim();
+
+      if (!title) { alert("Merci de renseigner un titre pour ce point d'information."); return; }
+
+      const hotspots = APP_DATA[currentLieuKey].positions[currentPosKey].hotspots;
+
+      if (selectedItem && selectedItem.type === 'hotspot') {
+        Object.assign(hotspots[selectedItem.index], { title, text, image });
+      } else if (pendingItemData) {
+        hotspots.push({ title, text, image, pos: pendingItemData.pos, rot: pendingItemData.rot, scale: pendingItemData.scale });
+      }
+
+      isHasUnsavedChanges = true;
+      closeModal();
+      renderHotspots(hotspots);
+    }
+
+    // ==========================================
+    // SUPPRESSION / FERMETURE COMMUNES
+    // ==========================================
+    function deleteSelectedItem() {
+      if (!selectedItem) { closeModal(); return; }
+      const posData = APP_DATA[currentLieuKey].positions[currentPosKey];
+      const arr = selectedItem.type === 'arrow' ? posData.arrows : posData.hotspots;
+      arr.splice(selectedItem.index, 1);
+      isHasUnsavedChanges = true;
+      renderArrows(posData.arrows);
+      renderHotspots(posData.hotspots);
       closeModal();
     }
 
     function closeModal() {
       document.getElementById('link-modal').style.display = 'none';
-      selectedArrowIndex = -1;
-      pendingArrowData = null;
+      document.getElementById('hotspot-modal').style.display = 'none';
+      selectedItem = null;
+      pendingItemData = null;
+      pendingItemType = null;
     }
 
     // ==========================================
-    // 7. SAUVEGARDE DIRECTE SUR LE BACKEND
+    // SAUVEGARDE SUR LE BACKEND
     // ==========================================
     async function saveConfiguration() {
-      let dataToExport = JSON.parse(JSON.stringify(APP_DATA));
+      const dataToExport = JSON.parse(JSON.stringify(APP_DATA));
       Object.keys(dataToExport).forEach(lieu => {
         Object.keys(dataToExport[lieu].positions).forEach(pos => {
           delete dataToExport[lieu].positions[pos].currentDateIdx;
@@ -693,26 +1021,26 @@ function toggleEditorMode(enabled) {
 
         if (response.ok) {
           isHasUnsavedChanges = false;
-          alert("✅ Sauvegarde réussie avec création de backup dans /backup !");
+          alert("✅ Sauvegarde réussie (backup créé dans /backups).");
           return;
         }
+        throw new Error(`Statut HTTP ${response.status}`);
       } catch (err) {
-        console.warn("Erreur d'enregistrement serveur, mode téléchargement fallback...");
+        console.warn("Erreur d'enregistrement serveur, bascule en téléchargement local :", err);
       }
 
-      // Fallback
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToExport, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", "config.json");
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
+      const a = document.createElement('a');
+      a.setAttribute("href", dataStr);
+      a.setAttribute("download", "config.json");
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       isHasUnsavedChanges = false;
     }
 
     // ==========================================
-    // 8. DROPDOWNS & MANETTES VR
+    // DROPDOWNS
     // ==========================================
     function populateLieuDropdown() {
       const select = document.getElementById('select-lieu');
@@ -729,7 +1057,6 @@ function toggleEditorMode(enabled) {
       const select = document.getElementById('select-position');
       select.innerHTML = '';
       if (!lieuData || !lieuData.positions) return;
-
       Object.keys(lieuData.positions).forEach(posKey => {
         const opt = document.createElement('option');
         opt.value = posKey;
@@ -743,15 +1070,12 @@ function toggleEditorMode(enabled) {
       const select = document.getElementById('select-date');
       select.innerHTML = '';
       if (!posData || !posData.photos || posData.photos.length === 0) return;
-
       posData.photos.forEach((photoPath, idx) => {
         const opt = document.createElement('option');
         opt.value = idx;
         opt.innerText = extractDate(photoPath);
         select.appendChild(opt);
       });
-      
-      // Sélectionner la date actuellement chargée
       select.value = posData.currentDateIdx;
     }
 
@@ -762,11 +1086,9 @@ function toggleEditorMode(enabled) {
     function cycleDate(direction) {
       const posData = APP_DATA[currentLieuKey].positions[currentPosKey];
       if (!posData || !posData.photos) return;
-
       let newIdx = posData.currentDateIdx + direction;
       if (newIdx >= posData.photos.length) newIdx = 0;
       if (newIdx < 0) newIdx = posData.photos.length - 1;
-
       loadPanorama(currentLieuKey, currentPosKey, newIdx);
     }
 
@@ -782,6 +1104,7 @@ function toggleEditorMode(enabled) {
     });
     document.querySelector('a-scene').addEventListener('exit-vr', () => {
       document.querySelector('#vr-info-display').setAttribute('visible', 'false');
+      document.getElementById('vr-hotspot-display').setAttribute('visible', 'false');
     });
 
     window.onload = initApp;

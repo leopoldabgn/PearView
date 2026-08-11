@@ -1,54 +1,68 @@
-import os
+#!/usr/bin/env python3
+"""
+Scanne le dossier assets/ (Lieu/Position/Photos) et génère/enrichit config.json
+sans écraser les flèches et points d'information déjà configurés.
+
+Structure attendue :
+  assets/<LIEU>/<POSITION>/<POSITION>_<MM-AAAA>.jpg
+"""
+
 import json
+import logging
+import os
 
-CONFIG_FILE = 'config.json'
-ASSETS_DIR = 'assets'
+CONFIG_FILE = "config.json"
+ASSETS_DIR = "assets"
+VALID_EXTENSIONS = (".jpg", ".jpeg", ".png")
 
-# Fonction pour trier les photos par date (MM-AAAA)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+log = logging.getLogger("generate_config")
+
+
+def date_sort_key(file_path):
+    """Extrait MM-AAAA du nom de fichier et le convertit en nombre de mois
+    pour un tri chronologique fiable. Retourne 0 (et log un avertissement)
+    si le nom de fichier ne suit pas la convention attendue."""
+    file_name = os.path.basename(file_path)
+    name_without_ext = os.path.splitext(file_name)[0]
+    parts = name_without_ext.split("_")
+    date_str = parts[-1]  # ex: "11-2012"
+    try:
+        month, year = map(int, date_str.split("-"))
+        return year * 12 + month
+    except (ValueError, IndexError):
+        log.warning("Nom de fichier non conforme (attendu ..._MM-AAAA.jpg) : %s", file_name)
+        return 0
+
+
 def sort_photos_by_date(photo_list):
-    def get_date_key(filePath):
-        fileName = os.path.basename(filePath)
-        nameWithoutExt = os.path.splitext(fileName)[0]
-        parts = nameWithoutExt.split('_')
-        dateStr = parts[-1] # "11-2012"
-        try:
-            m, y = map(int, dateStr.split('-'))
-            return y * 12 + m # Tri chronologique par mois total
-        except Exception:
-            return 0
-    return sorted(photo_list, key=get_date_key)
+    return sorted(photo_list, key=date_sort_key)
 
 
-
-# -------------------------------------
-
-
-
-# 1. Charger la config existante si elle existe
-config = {}
-if os.path.exists(CONFIG_FILE):
-    with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-        try:
-            config = json.load(f)
-        except Exception:
-            config = {}
+def load_existing_config():
+    if not os.path.exists(CONFIG_FILE):
+        return {}
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as exc:
+        log.warning("config.json existant illisible (%s), un nouveau sera créé.", exc)
+        return {}
 
 
-# 2. Scanner le dossier assets/
-if os.path.exists(ASSETS_DIR):
+def scan_assets(config):
+    if not os.path.isdir(ASSETS_DIR):
+        log.warning("Dossier '%s' introuvable — rien à scanner.", ASSETS_DIR)
+        return config
+
     for lieu in sorted(os.listdir(ASSETS_DIR)):
         lieu_path = os.path.join(ASSETS_DIR, lieu)
         if not os.path.isdir(lieu_path):
             continue
 
-        # Nouveau lieu découvert
         if lieu not in config:
-            config[lieu] = {
-                "label": lieu, # Nom par défaut (ex: "LIEU1")
-                "defaultPosition": "",
-                "positions": {}
-            }
-
+            config[lieu] = {"label": lieu, "defaultPosition": "", "positions": {}}
+        config[lieu].setdefault("positions", {})
         positions = config[lieu]["positions"]
 
         for pos in sorted(os.listdir(lieu_path)):
@@ -56,32 +70,42 @@ if os.path.exists(ASSETS_DIR):
             if not os.path.isdir(pos_path):
                 continue
 
-            # Définir la première position comme position par défaut si non configurée
-            if not config[lieu]["defaultPosition"]:
+            if not config[lieu].get("defaultPosition"):
                 config[lieu]["defaultPosition"] = pos
 
-            # Lister toutes les photos JPG de cette position
             photos = [
-                os.path.join(ASSETS_DIR, lieu, pos, f).replace('\\', '/')
+                os.path.join(ASSETS_DIR, lieu, pos, f).replace("\\", "/")
                 for f in sorted(os.listdir(pos_path))
-                if f.lower().endswith(('.jpg', '.jpeg'))
+                if f.lower().endswith(VALID_EXTENSIONS)
             ]
-
-            # Trier chronologiquement avant d'enregistrer
             photos = sort_photos_by_date(photos)
 
-            # Nouvelle position découverte
+            if not photos:
+                log.warning("Aucune photo trouvée pour %s / %s", lieu, pos)
+
             if pos not in positions:
-                positions[pos] = {
-                    "photos": photos,
-                    "arrows": [] # Flèches vides par défaut
-                }
+                positions[pos] = {"photos": photos, "arrows": [], "hotspots": []}
             else:
-                # Mise à jour de la liste des photos (conserve les flèches existantes)
+                # Conserve les flèches / points d'info déjà configurés,
+                # ne met à jour que la liste des photos.
                 positions[pos]["photos"] = photos
+                positions[pos].setdefault("arrows", [])
+                positions[pos].setdefault("hotspots", [])
 
-# 3. Sauvegarder dans config.json
-with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-    json.dump(config, f, indent=2, ensure_ascii=False)
+    return config
 
-print("✅ Configuration 'config.json' générée avec succès !")
+
+def main():
+    config = load_existing_config()
+    config = scan_assets(config)
+
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+
+    lieu_count = len(config)
+    pos_count = sum(len(v.get("positions", {})) for v in config.values())
+    log.info("✅ '%s' généré avec succès : %d lieu(x), %d position(s).", CONFIG_FILE, lieu_count, pos_count)
+
+
+if __name__ == "__main__":
+    main()

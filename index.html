@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>StreetView Multi-Lieux VR</title>
+  <title>StreetView Multi-Lieux VR - Port 8000</title>
   <script src="aframe.min.js"></script>
   <style>
     /* Interface 2D en haut à gauche */
@@ -15,7 +15,7 @@
       flex-direction: column;
       gap: 10px;
       font-family: Arial, sans-serif;
-      max-width: 280px;
+      max-width: 300px;
     }
     .ui-panel {
       background: rgba(0, 0, 0, 0.85);
@@ -68,6 +68,11 @@
       border-color: #bd2130;
       font-weight: bold;
     }
+    .btn-tool {
+      background: #333;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
     .checkbox-container {
       display: flex;
       align-items: center;
@@ -86,7 +91,7 @@
       font-weight: bold;
       font-size: 13px;
     }
-    /* Viseur central pour mode édition */
+    /* Viseur central pour le mode édition */
     #crosshair {
       position: absolute;
       top: 50%;
@@ -107,7 +112,7 @@
     #crosshair::before { top: 7px; left: 0; width: 16px; height: 2px; }
     #crosshair::after { top: 0; left: 7px; width: 2px; height: 16px; }
 
-    /* Modal de liaison de flèche */
+    /* Modal de liaison et d'ajustement de la flèche */
     #link-modal {
       position: absolute;
       top: 50%;
@@ -115,16 +120,22 @@
       transform: translate(-50%, -50%);
       z-index: 1000;
       background: rgba(15, 15, 15, 0.95);
-      padding: 20px;
+      padding: 18px;
       border-radius: 12px;
       border: 1px solid #007bff;
       color: white;
       display: none;
       flex-direction: column;
-      gap: 12px;
-      min-width: 280px;
+      gap: 10px;
+      min-width: 310px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.8);
       font-family: Arial, sans-serif;
+    }
+    .nudge-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+      margin: 4px 0;
     }
   </style>
 </head>
@@ -172,18 +183,19 @@
         <button id="btn-add-arrow" class="btn-primary" onclick="spawnArrowAtCenter()">➕ Poser flèche au viseur</button>
       </div>
       <p style="font-size: 11px; color: #ccc; margin: 0;">
-        1. Visez l'endroit au sol avec la caméra.<br>
+        1. Visez l'endroit voulu au sol.<br>
         2. Cliquez sur <b>"Poser flèche au viseur"</b>.<br>
-        3. Clic sur une flèche pour la modifier/supprimer.
+        3. Cliquez sur une flèche pour la déplacer pas-à-pas ou la relier.
       </p>
 
       <button class="btn-success" onclick="saveConfiguration()">💾 Sauvegarder sur le serveur</button>
     </div>
   </div>
 
-  <!-- MODAL DE LIAISON DE FLÈCHE -->
+  <!-- MODAL DE CONFIGURATION & DÉPLACEMENT PAS-À-PAS -->
   <div id="link-modal">
-    <h4 style="margin:0;">Destination de la flèche</h4>
+    <h4 style="margin:0; font-size:15px;">Configuration de la flèche</h4>
+    
     <div class="ui-group">
       <label>Lieu cible :</label>
       <select id="modal-select-lieu" onchange="updateModalPositions()"></select>
@@ -192,10 +204,31 @@
       <label>Position cible :</label>
       <select id="modal-select-position"></select>
     </div>
+
+    <!-- Section Déplacement pas-à-pas (Uniquement lors de l'édition d'une flèche existante) -->
+    <div id="arrow-adjustment-section" style="display:none; border-top: 1px solid #444; padding-top: 8px;">
+      <label style="font-size:11px; color:#aaa; font-weight:bold; text-transform:uppercase;">Ajuster la position :</label>
+      
+      <!-- Contrôles Avancer / Reculer / Côtés -->
+      <div class="nudge-grid">
+        <button class="btn-tool" onclick="nudgeArrow('rot', -15)">⟲ Pivoter</button>
+        <button class="btn-tool" onclick="nudgeArrow('forward', 0.5)">⬆️ Avancer</button>
+        <button class="btn-tool" onclick="nudgeArrow('rot', 15)">⟳ Pivoter</button>
+        <button class="btn-tool" onclick="nudgeArrow('strafe', -0.5)">⬅️ Gauche</button>
+        <button class="btn-tool" onclick="nudgeArrow('forward', -0.5)">⬇️ Reculer</button>
+        <button class="btn-tool" onclick="nudgeArrow('strafe', 0.5)">➡️ Droite</button>
+      </div>
+      <!-- Hauteur -->
+      <div style="display:flex; gap:5px; margin-top:4px;">
+        <button class="btn-tool" style="flex:1;" onclick="nudgeArrow('height', 0.2)">🔼 Monter</button>
+        <button class="btn-tool" style="flex:1;" onclick="nudgeArrow('height', -0.2)">🔽 Descendre</button>
+      </div>
+    </div>
+
     <div style="display:flex; gap:8px; margin-top:8px;">
       <button class="btn-primary" style="flex:1;" onclick="confirmArrowLink()">Valider</button>
       <button class="btn-danger" id="modal-btn-delete" style="display:none;" onclick="deleteSelectedArrow()">Supprimer</button>
-      <button style="flex:1;" onclick="closeModal()">Annuler</button>
+      <button style="flex:1;" onclick="closeModal()">Fermer</button>
     </div>
   </div>
 
@@ -227,6 +260,12 @@
   </a-scene>
 
   <script>
+    // =========================================================================
+    // PARAMÈTRES PERSONNALISABLES
+    // =========================================================================
+    const ARROW_SPAWN_DISTANCE = 6.0; // Distance en mètres où apparaît la flèche (modifiez cette valeur à souhait !)
+    const ARROW_SPAWN_HEIGHT   = -1.0; // Hauteur au sol (-1.0 = niveau des pieds)
+
     let APP_DATA = {};
     let currentLieuKey = "";
     let currentPosKey = "";
@@ -259,15 +298,6 @@
           let delta = e.deltaY * 0.05;
           let newFov = Math.min(Math.max(currentFov + delta, this.minFov), this.maxFov);
           this.el.setAttribute('camera', 'fov', newFov);
-
-          // Ajuster la sensibilité de rotation de la souris proportionnellement au FOV
-          let lookControls = this.el.components['look-controls'];
-          if (lookControls) {
-            let speedFactor = newFov / this.baseFov;
-            // look-controls utilise un facteur interne que l'on ajuste via les deltas
-            lookControls.pitchObject.rotation.reorder('YXZ');
-            lookControls.data.magicWindowTracking = true;
-          }
         });
       }
     });
@@ -379,7 +409,7 @@
     }
 
     // ==========================================
-    // 4. POSE DE FLÈCHE CORRIGÉE AU VISEUR
+    // 4. MODE ÉDITEUR & POSE AU VISEUR
     // ==========================================
     function toggleEditorMode(enabled) {
       if (!enabled && isHasUnsavedChanges) {
@@ -397,18 +427,14 @@
       const cameraEl = document.querySelector('#main-camera');
       const cameraObj = cameraEl.getObject3D('camera');
       
-      // Récupération précise de la direction mondiale pointée
       let dir = new THREE.Vector3();
       cameraObj.getWorldDirection(dir);
 
-      // Calculer l'angle de rotation Y pour que la flèche pointe dans la bonne direction
       let angleY = Math.atan2(dir.x, dir.z) * (180 / Math.PI) + 180;
 
-      // Distance horizontale (au sol)
-      let distance = 4;
-      let posX = dir.x * distance;
-      let posZ = dir.z * distance;
-      let posY = -1; // Au sol
+      let posX = dir.x * ARROW_SPAWN_DISTANCE;
+      let posZ = dir.z * ARROW_SPAWN_DISTANCE;
+      let posY = ARROW_SPAWN_HEIGHT;
 
       pendingArrowData = {
         pos: `${posX.toFixed(2)} ${posY.toFixed(2)} ${posZ.toFixed(2)}`,
@@ -419,24 +445,64 @@
     }
 
     // ==========================================
-    // 5. MODAL & GESTION DES FLÈCHES
+    // 5. AJUSTEMENT PAS-À-PAS DES FLÈCHES (NUDGE)
+    // ==========================================
+    function nudgeArrow(type, amount) {
+      if (selectedArrowIndex < 0) return;
+      const arrows = APP_DATA[currentLieuKey].positions[currentPosKey].arrows;
+      const arrow = arrows[selectedArrowIndex];
+
+      let posParts = arrow.pos.split(' ').map(Number);
+      let rotParts = arrow.rot.split(' ').map(Number);
+
+      let x = posParts[0], y = posParts[1], z = posParts[2];
+      let rotX = rotParts[0], rotY = rotParts[1], rotZ = rotParts[2];
+
+      if (type === 'forward') {
+        // Avancer ou reculer selon la direction actuelle de la flèche
+        let rad = (rotY - 180) * (Math.PI / 180);
+        x += Math.sin(rad) * amount;
+        z += Math.cos(rad) * amount;
+      } else if (type === 'strafe') {
+        // Déplacement latéral (gauche / droite)
+        let rad = (rotY - 90) * (Math.PI / 180);
+        x += Math.sin(rad) * amount;
+        z += Math.cos(rad) * amount;
+      } else if (type === 'height') {
+        y += amount;
+      } else if (type === 'rot') {
+        rotY = (rotY + amount) % 360;
+      }
+
+      arrow.pos = `${x.toFixed(2)} ${y.toFixed(2)} ${z.toFixed(2)}`;
+      arrow.rot = `${rotX} ${rotY.toFixed(1)} ${rotZ}`;
+
+      isHasUnsavedChanges = true;
+      renderArrows(arrows);
+    }
+
+    // ==========================================
+    // 6. MODAL DE GESTION
     // ==========================================
     function openLinkModal(arrowIdx) {
       selectedArrowIndex = arrowIdx;
       const modal = document.getElementById('link-modal');
       const deleteBtn = document.getElementById('modal-btn-delete');
+      const adjustSection = document.getElementById('arrow-adjustment-section');
       modal.style.display = 'flex';
 
       populateModalLieux();
 
       if (arrowIdx >= 0) {
         deleteBtn.style.display = 'block';
+        adjustSection.style.display = 'block';
         let arrow = APP_DATA[currentLieuKey].positions[currentPosKey].arrows[arrowIdx];
         document.getElementById('modal-select-lieu').value = arrow.targetLieu || currentLieuKey;
         updateModalPositions();
         document.getElementById('modal-select-position').value = arrow.targetPos;
       } else {
         deleteBtn.style.display = 'none';
+        adjustSection.style.display = 'none';
         document.getElementById('modal-select-lieu').value = currentLieuKey;
         updateModalPositions();
       }
@@ -506,7 +572,7 @@
     }
 
     // ==========================================
-    // 6. SAUVEGARDE DIRECTE SUR LE BACKEND
+    // 7. SAUVEGARDE DIRECTE SUR LE BACKEND
     // ==========================================
     async function saveConfiguration() {
       let dataToExport = JSON.parse(JSON.stringify(APP_DATA));
@@ -517,7 +583,6 @@
       });
 
       try {
-        // Envoi au backend Python sur /api/save-config
         const response = await fetch('/api/save-config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -526,14 +591,14 @@
 
         if (response.ok) {
           isHasUnsavedChanges = false;
-          alert("✅ Configuration sauvegardée avec succès sur le serveur !");
+          alert("✅ Sauvegarde réussie avec création de backup dans /backup !");
           return;
         }
       } catch (err) {
-        console.warn("Backend save endpoint non disponible, téléchargement local en cours...");
+        console.warn("Erreur d'enregistrement serveur, mode téléchargement fallback...");
       }
 
-      // Fallback si serveur simple sans endpoint POST : téléchargement du fichier
+      // Fallback
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToExport, null, 2));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
@@ -545,7 +610,7 @@
     }
 
     // ==========================================
-    // 7. DROPDOWNS & MANETTES VR
+    // 8. DROPDOWNS & MANETTES VR
     // ==========================================
     function populateLieuDropdown() {
       const select = document.getElementById('select-lieu');

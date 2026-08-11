@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>StreetView Multi-Lieux VR - Port 8000</title>
+  <title>StreetView Multi-Lieux VR</title>
   <script src="aframe.min.js"></script>
   <style>
     /* Interface 2D en haut à gauche */
@@ -112,25 +112,27 @@
     #crosshair::before { top: 7px; left: 0; width: 16px; height: 2px; }
     #crosshair::after { top: 0; left: 7px; width: 2px; height: 16px; }
 
-    /* Modal de liaison et d'ajustement de la flèche */
+    /* Modal de liaison et d'ajustement de la flèche (Décalé à droite et semi-transparent) */
     #link-modal {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
+      top: 70%;
+      left: 40%;
+      transform: translateY(-50%);
       z-index: 1000;
-      background: rgba(15, 15, 15, 0.95);
+      background: rgba(15, 15, 15, 0.75);
       padding: 18px;
       border-radius: 12px;
-      border: 1px solid #007bff;
+      border: 1px solid rgba(0, 123, 255, 0.6);
       color: white;
       display: none;
       flex-direction: column;
       gap: 10px;
       min-width: 310px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
       font-family: Arial, sans-serif;
     }
+    
     .nudge-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -185,7 +187,7 @@
       <p style="font-size: 11px; color: #ccc; margin: 0;">
         1. Visez l'endroit voulu au sol.<br>
         2. Cliquez sur <b>"Poser flèche au viseur"</b>.<br>
-        3. Cliquez sur une flèche pour la déplacer pas-à-pas ou la relier.
+        3. Cliquez sur une flèche pour la déplacer pas-à-pas, l'agrandir ou la relier.
       </p>
 
       <button class="btn-success" onclick="saveConfiguration()">💾 Sauvegarder sur le serveur</button>
@@ -205,23 +207,28 @@
       <select id="modal-select-position"></select>
     </div>
 
-    <!-- Section Déplacement pas-à-pas (Uniquement lors de l'édition d'une flèche existante) -->
-    <div id="arrow-adjustment-section" style="display:none; border-top: 1px solid #444; padding-top: 8px;">
+    <!-- Section Déplacement pas-à-pas -->
+    <div id="arrow-adjustment-section" style="display:none; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px;">
       <label style="font-size:11px; color:#aaa; font-weight:bold; text-transform:uppercase;">Ajuster la position :</label>
       
-      <!-- Contrôles Avancer / Reculer / Côtés -->
+      <!-- Contrôles Avancer / Reculer / Côtés / Rotations -->
       <div class="nudge-grid">
-        <button class="btn-tool" onclick="nudgeArrow('rot', -15)">⟲ Pivoter</button>
+        <button class="btn-tool" onclick="nudgeArrow('rot', 15)">⟲ Pivoter G.</button>
         <button class="btn-tool" onclick="nudgeArrow('forward', 0.5)">⬆️ Avancer</button>
-        <button class="btn-tool" onclick="nudgeArrow('rot', 15)">⟳ Pivoter</button>
-        <button class="btn-tool" onclick="nudgeArrow('strafe', -0.5)">⬅️ Gauche</button>
+        <button class="btn-tool" onclick="nudgeArrow('rot', -15)">⟳ Pivoter D.</button>
+        <button class="btn-tool" onclick="nudgeArrow('strafe', 0.5)">⬅️ Gauche</button>
         <button class="btn-tool" onclick="nudgeArrow('forward', -0.5)">⬇️ Reculer</button>
-        <button class="btn-tool" onclick="nudgeArrow('strafe', 0.5)">➡️ Droite</button>
+        <button class="btn-tool" onclick="nudgeArrow('strafe', -0.5)">➡️ Droite</button>
       </div>
-      <!-- Hauteur -->
+
+      <!-- Hauteur & Taille -->
       <div style="display:flex; gap:5px; margin-top:4px;">
         <button class="btn-tool" style="flex:1;" onclick="nudgeArrow('height', 0.2)">🔼 Monter</button>
         <button class="btn-tool" style="flex:1;" onclick="nudgeArrow('height', -0.2)">🔽 Descendre</button>
+      </div>
+      <div style="display:flex; gap:5px; margin-top:4px;">
+        <button class="btn-tool" style="flex:1;" onclick="nudgeArrow('scale', 0.2)">🔍 + Grossir</button>
+        <button class="btn-tool" style="flex:1;" onclick="nudgeArrow('scale', -0.2)">🔎 - Maigrir</button>
       </div>
     </div>
 
@@ -263,8 +270,8 @@
     // =========================================================================
     // PARAMÈTRES PERSONNALISABLES
     // =========================================================================
-    const ARROW_SPAWN_DISTANCE = 6.0; // Distance en mètres où apparaît la flèche (modifiez cette valeur à souhait !)
-    const ARROW_SPAWN_HEIGHT   = -1.0; // Hauteur au sol (-1.0 = niveau des pieds)
+    const ARROW_SPAWN_DISTANCE = 6.0; // Distance en mètres où apparaît la flèche
+    const ARROW_SPAWN_HEIGHT   = -1.0; // Hauteur au sol
 
     let APP_DATA = {};
     let currentLieuKey = "";
@@ -373,7 +380,8 @@
       populateDateDropdown(posData);
 
       const vrText = document.querySelector('#vr-info-display');
-      vrText.setAttribute('value', `${lieuObj.label || lieuKey} - ${posKey} | ${currentDateStr}\n(Manette: A/B pour changer d'année)`);
+      vrText.setAttribute('value', `${lieuObj.label || lieuKey} - ${posKey} | ${currentDateStr}
+(Manette: A/B pour changer d'année)`);
 
       renderArrows(posData.arrows || []);
     }
@@ -388,7 +396,9 @@
         el.setAttribute('src', '#fleche-img');
         el.setAttribute('position', arrow.pos);
         el.setAttribute('rotation', arrow.rot || "-90 0 0");
-        el.setAttribute('scale', '1.5 1.5 1.5');
+        
+        const scaleVal = arrow.scale || "1.5 1.5 1.5";
+        el.setAttribute('scale', scaleVal);
 
         el.addEventListener('click', (evt) => {
           if (isEditorMode) {
@@ -411,7 +421,7 @@
     // ==========================================
     // 4. MODE ÉDITEUR & POSE AU VISEUR
     // ==========================================
-    function toggleEditorMode(enabled) {
+function toggleEditorMode(enabled) {
       if (!enabled && isHasUnsavedChanges) {
         if (!confirm("Vous avez des modifications non sauvegardées. Quitter sans sauvegarder ?")) {
           document.getElementById('toggle-editor').checked = true;
@@ -421,6 +431,12 @@
       isEditorMode = enabled;
       document.getElementById('editor-panel').style.display = enabled ? 'flex' : 'none';
       document.getElementById('crosshair').style.display = enabled ? 'block' : 'none';
+
+      // Forcer le maintien du Reverse Mouse Drag sur la caméra
+      const cameraEl = document.querySelector('#main-camera');
+      if (cameraEl) {
+        cameraEl.setAttribute('look-controls', 'reverseMouseDrag', true);
+      }
     }
 
     function spawnArrowAtCenter() {
@@ -438,7 +454,8 @@
 
       pendingArrowData = {
         pos: `${posX.toFixed(2)} ${posY.toFixed(2)} ${posZ.toFixed(2)}`,
-        rot: `-90 ${angleY.toFixed(1)} 0`
+        rot: `-90 ${angleY.toFixed(1)} 0`,
+        scale: "1.5 1.5 1.5"
       };
 
       openLinkModal(-1);
@@ -459,12 +476,10 @@
       let rotX = rotParts[0], rotY = rotParts[1], rotZ = rotParts[2];
 
       if (type === 'forward') {
-        // Avancer ou reculer selon la direction actuelle de la flèche
         let rad = (rotY - 180) * (Math.PI / 180);
         x += Math.sin(rad) * amount;
         z += Math.cos(rad) * amount;
       } else if (type === 'strafe') {
-        // Déplacement latéral (gauche / droite)
         let rad = (rotY - 90) * (Math.PI / 180);
         x += Math.sin(rad) * amount;
         z += Math.cos(rad) * amount;
@@ -472,6 +487,13 @@
         y += amount;
       } else if (type === 'rot') {
         rotY = (rotY + amount) % 360;
+      } else if (type === 'scale') {
+        let currentScale = 1.5;
+        if (arrow.scale) {
+          currentScale = parseFloat(arrow.scale.split(' ')[0]);
+        }
+        currentScale = Math.max(0.3, Math.min(5.0, currentScale + amount));
+        arrow.scale = `${currentScale.toFixed(2)} ${currentScale.toFixed(2)} ${currentScale.toFixed(2)}`;
       }
 
       arrow.pos = `${x.toFixed(2)} ${y.toFixed(2)} ${z.toFixed(2)}`;
@@ -547,7 +569,8 @@
           targetLieu: targetLieu,
           targetPos: targetPos,
           pos: pendingArrowData.pos,
-          rot: pendingArrowData.rot
+          rot: pendingArrowData.rot,
+          scale: pendingArrowData.scale || "1.5 1.5 1.5"
         });
       }
 
@@ -591,7 +614,7 @@
 
         if (response.ok) {
           isHasUnsavedChanges = false;
-          alert("✅ Sauvegarde réussie avec création d'une backup dans /backups !");
+          alert("✅ Sauvegarde réussie avec création de backup dans /backup !");
           return;
         }
       } catch (err) {

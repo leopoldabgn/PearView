@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>StreetView Multi-Lieux VR</title>
+  <script src="aframe.min.js"></script>
+  <style>
+    /* Interface 2D sur PC / Mobile */
+    #ui-container {
+      position: absolute;
+      top: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+      font-family: Arial, sans-serif;
+    }
+    .ui-bar {
+      background: rgba(0, 0, 0, 0.8);
+      padding: 8px 16px;
+      border-radius: 20px;
+      color: white;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .btn {
+      background: #333;
+      color: white;
+      border: 1px solid #666;
+      padding: 6px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .btn:hover { background: #555; }
+    .btn.active {
+      background: #007bff;
+      border-color: #0056b3;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- UI 2D (PC / Navigateur) -->
+  <div id="ui-container">
+    <!-- Barre de choix du LIEU -->
+    <div class="ui-bar">
+      <span>📍 <b>Lieu :</b></span>
+      <div id="location-buttons"></div>
+    </div>
+    <!-- Barre de choix de la DATE -->
+    <div class="ui-bar">
+      <span>📅 <b>Date :</b></span>
+      <div id="date-buttons"></div>
+    </div>
+  </div>
+
+  <a-scene webxr="optionalFeatures: hit-test, local-floor">
+    <a-assets>
+      <img id="fleche-img" src="assets/fleche.png">
+    </a-assets>
+
+    <!-- Photo 360 en fond avec effet de fondu -->
+    <a-sky id="background" src="" 
+           animation__fadeout="property: components.material.material.opacity; type: opacity; from: 1; to: 0; dur: 300; startEvents: fade-out" 
+           animation__fadein="property: components.material.material.opacity; type: opacity; from: 0; to: 1; dur: 300; startEvents: fade-in">
+    </a-sky>
+
+    <!-- Panneau 3D d'informations en VR -->
+    <a-text id="vr-info-display" value="" position="0 2.5 -3" align="center" color="#FFFFFF" width="6" visible="false"></a-text>
+
+    <!-- Manettes Meta Quest 3 -->
+    <a-entity id="leftHand" laser-controls="hand: left" raycaster="objects: .raycastable"></a-entity>
+    <a-entity id="rightHand" laser-controls="hand: right" raycaster="objects: .raycastable" controller-buttons></a-entity>
+
+    <!-- Conteneur des flèches interactives -->
+    <a-entity id="navigation-nodes"></a-entity>
+  </a-scene>
+
+  <script>
+    // ==========================================
+    // 1. CONFIGURATION DES LIEUX & POSITIONS
+    // ==========================================
+    let APP_DATA = {};
+    let currentLieuKey = "";
+    let currentPosKey = "";
+
+    // Charger la configuration JSON au démarrage
+    async function initApp() {
+      try {
+        const response = await fetch('config.json');
+        APP_DATA = await response.json();
+
+        // Initialisation des données dynamiques (index de date par défaut)
+        Object.keys(APP_DATA).forEach(lieu => {
+          Object.keys(APP_DATA[lieu].positions).forEach(pos => {
+            // Sélectionne la photo la plus récente par défaut
+            APP_DATA[lieu].positions[pos].currentDateIdx = 
+              APP_DATA[lieu].positions[pos].photos.length - 1;
+          });
+        });
+
+        // Charger le premier lieu disponible
+        currentLieuKey = Object.keys(APP_DATA)[0];
+        renderLieuButtons();
+        selectLieu(currentLieuKey);
+
+      } catch (error) {
+        console.error("Erreur lors du chargement du fichier config.json :", error);
+      }
+    }
+
+    // Lancement au chargement de la page
+    window.onload = initApp;
+
+    // Extraire "MOIS-ANNEE" depuis le chemin du fichier
+    function extractDate(filePath) {
+      const fileName = filePath.split('/').pop(); // Obtient ex: "POSITION1_08-2026.jpg"
+      const nameWithoutExt = fileName.replace('.jpg', '').replace('.jpeg', '');
+      const parts = nameWithoutExt.split('_');
+      return parts[parts.length - 1]; // Renvoie "08-2026"
+    }
+
+    // ==========================================
+    // 2. FONCTIONS DE CHARGEMENT & MISE À JOUR
+    // ==========================================
+
+    // Charger un nouveau Lieu
+    function selectLieu(lieuKey) {
+      currentLieuKey = lieuKey;
+      const lieuData = APP_DATA[lieuKey];
+      currentPosKey = lieuData.defaultPosition;
+      
+      renderLieuButtons();
+      loadPanorama(currentLieuKey, currentPosKey);
+    }
+
+    // Charger un Panorama précis
+    function loadPanorama(lieuKey, posKey, dateIndex = null) {
+      currentLieuKey = lieuKey;
+      currentPosKey = posKey;
+      
+      const posData = APP_DATA[lieuKey].positions[posKey];
+
+      if (dateIndex !== null) {
+        posData.currentDateIdx = dateIndex;
+      }
+
+      const photoPath = posData.photos[posData.currentDateIdx];
+      const currentDateStr = extractDate(photoPath);
+
+      // A. Animation de transition
+      const sky = document.querySelector('#background');
+      sky.emit('fade-out');
+
+      setTimeout(() => {
+        sky.setAttribute('src', photoPath);
+        sky.emit('fade-in');
+      }, 300);
+
+      // B. Mettre à jour l'UI 2D (Boutons Date)
+      renderDateButtons(posData);
+
+      // C. Mettre à jour le texte 3D pour le Quest 3
+      const vrText = document.querySelector('#vr-info-display');
+      const lieuLabel = APP_DATA[lieuKey].label;
+      vrText.setAttribute('value', `${lieuLabel} | ${currentDateStr}\n(Manette: A/B pour changer d'année)`);
+
+      // D. Afficher les flèches au sol
+      renderArrows(posData.arrows);
+    }
+
+    // Générer les flèches 3D à plat au sol
+    function renderArrows(arrowsData) {
+      const nodesContainer = document.querySelector('#navigation-nodes');
+      nodesContainer.innerHTML = ''; // Nettoyer les anciennes flèches
+
+      arrowsData.forEach(arrow => {
+        const el = document.createElement('a-image');
+        el.setAttribute('class', 'raycastable');
+        el.setAttribute('src', '#fleche-img');
+        el.setAttribute('position', arrow.pos);
+        el.setAttribute('rotation', arrow.rot);
+        el.setAttribute('scale', '1.5 1.5 1.5'); // Taille de la flèche
+
+        // Événement Clic (Gâchette Quest 3 ou Clic Souris)
+        el.addEventListener('click', () => {
+          loadPanorama(currentLieuKey, arrow.targetPos);
+        });
+
+        nodesContainer.appendChild(el);
+      });
+    }
+
+    // ==========================================
+    // 3. GENERATION DE L'INTERFACE 2D
+    // ==========================================
+
+    function renderLieuButtons() {
+      const container = document.getElementById('location-buttons');
+      container.innerHTML = '';
+
+      Object.keys(APP_DATA).forEach(lieuKey => {
+        const btn = document.createElement('button');
+        btn.className = `btn ${lieuKey === currentLieuKey ? 'active' : ''}`;
+        btn.innerText = APP_DATA[lieuKey].label;
+        btn.onclick = () => selectLieu(lieuKey);
+        container.appendChild(btn);
+      });
+    }
+
+    function renderDateButtons(posData) {
+      const container = document.getElementById('date-buttons');
+      container.innerHTML = '';
+
+      posData.photos.forEach((photoPath, idx) => {
+        const btn = document.createElement('button');
+        btn.className = `btn ${idx === posData.currentDateIdx ? 'active' : ''}`;
+        btn.innerText = extractDate(photoPath);
+        btn.onclick = () => loadPanorama(currentLieuKey, currentPosKey, idx);
+        container.appendChild(btn);
+      });
+    }
+
+    // Change la date via les boutons de la manette VR
+    function cycleDate(direction) {
+      const posData = APP_DATA[currentLieuKey].positions[currentPosKey];
+      let newIdx = posData.currentDateIdx + direction;
+
+      if (newIdx >= posData.photos.length) newIdx = 0;
+      if (newIdx < 0) newIdx = posData.photos.length - 1;
+
+      loadPanorama(currentLieuKey, currentPosKey, newIdx);
+    }
+
+    // Composant A-Frame pour capturer les boutons A/B du Meta Quest 3
+    AFRAME.registerComponent('controller-buttons', {
+      init: function () {
+        this.el.addEventListener('abuttondown', () => cycleDate(1));  // Bouton A = Année suivante
+        this.el.addEventListener('bbuttondown', () => cycleDate(-1)); // Bouton B = Année précédente
+      }
+    });
+
+    // Gestion du mode immersif VR
+    document.querySelector('a-scene').addEventListener('enter-vr', () => {
+      document.querySelector('#vr-info-display').setAttribute('visible', 'true');
+    });
+    document.querySelector('a-scene').addEventListener('exit-vr', () => {
+      document.querySelector('#vr-info-display').setAttribute('visible', 'false');
+    });
+
+    // Lancement au chargement de la page
+    window.onload = () => {
+      renderLieuButtons();
+      selectLieu(currentLieuKey);
+    };
+  </script>
+</body>
+</html>

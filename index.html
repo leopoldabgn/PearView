@@ -89,7 +89,7 @@
       font-weight: 600;
     }
 
-    select, button, input[type=text], textarea {
+    select, button, input[type=text], input[type=file], textarea {
       background: #171c23;
       color: var(--text-primary);
       border: 1px solid var(--border-strong);
@@ -108,6 +108,7 @@
     }
     textarea { resize: vertical; font-family: var(--font-ui); cursor: text; }
     input[type=text] { cursor: text; }
+    input[type=file] { cursor: pointer; font-size: 12px; padding: 7px 8px; }
 
     /* Sélecteur de date : traitement "tampon photo" mono/cuivre — élément signature */
     #select-date {
@@ -128,6 +129,7 @@
     .btn-danger:hover { background: var(--danger); color: #2a0a08; }
     .btn-tool { background: #171c23; padding: 7px 6px; font-size: 12px; text-align: center; }
     .btn-tool.active-tool { border-color: var(--accent-time); color: var(--accent-time); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
 
     .checkbox-container { display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer; user-select: none; }
     .checkbox-container input { width: 17px; height: 17px; cursor: pointer; accent-color: var(--accent-space); }
@@ -194,7 +196,7 @@
     #compass-here { color: var(--accent-space); font-weight: 700; }
 
     /* ==========================================================
-       MODALES (config flèche / hotspot)
+       MODALES (config flèche / hotspot / import)
        ========================================================== */
     .modal {
       position: absolute;
@@ -241,6 +243,19 @@
     #hotspot-info p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.5; color: var(--text-primary); }
     #hotspot-info img { width: 100%; border-radius: var(--radius-sm); display: block; margin-bottom: 8px; }
     #hotspot-info .close-x { position: absolute; top: 8px; right: 10px; cursor: pointer; color: var(--text-muted); font-size: 16px; background: none; border: none; padding: 4px; }
+
+    /* Liste des fichiers en cours d'import */
+    #import-file-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+    .import-file-row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; padding: 6px 8px; border-radius: 6px;
+      background: #171c23; border: 1px solid var(--border);
+    }
+    .import-file-row img.thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+    .import-file-row .info { flex: 1; min-width: 0; }
+    .import-file-row .fname { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .import-file-row .status { margin-top: 2px; }
+    .import-file-row.conflict { cursor: pointer; border-color: var(--accent-time-dim); }
 
     /* ==========================================================
        RESPONSIVE MOBILE
@@ -314,6 +329,15 @@
         2. Choisissez un outil ci-dessus.<br>
         3. Cliquez sur un élément posé pour l'ajuster, le relier ou le supprimer.
       </p>
+
+      <hr class="sep">
+
+      <div class="ui-group">
+        <label>Gestion du contenu</label>
+        <button class="btn-primary" onclick="openImportModal()">📥 Importer des photos…</button>
+        <button class="btn-danger" onclick="deleteCurrentPosition()">🗑️ Supprimer cette position</button>
+        <button class="btn-danger" onclick="deleteCurrentLieu()">🗑️ Supprimer ce lieu entier</button>
+      </div>
 
       <button class="btn-success" onclick="saveConfiguration()">💾 Sauvegarder sur le serveur</button>
     </div>
@@ -424,6 +448,37 @@
     </div>
   </div>
 
+  <!-- MODAL D'IMPORT DE PHOTOS -->
+  <div id="import-modal" class="modal accent-space">
+    <h4>📥 Importer des photos</h4>
+
+    <div class="ui-group">
+      <label>Lieu de destination</label>
+      <select id="import-select-lieu" onchange="onImportLieuChange(this.value)"></select>
+    </div>
+    <div class="ui-group" id="import-new-lieu-group" style="display:none;">
+      <label>Nom du nouveau lieu</label>
+      <input type="text" id="import-new-lieu-name" placeholder="Ex : Le Moulin">
+    </div>
+
+    <div class="ui-group">
+      <label>Photo(s) — nom attendu : POSITION_MM-AAAA.jpg</label>
+      <input type="file" id="import-file-input" accept="image/jpeg,image/png" multiple onchange="onImportFilesSelected(this.files)">
+      <p style="font-size:10.5px; color:var(--text-muted); margin:2px 0 0; line-height:1.4;">
+        Le nom du fichier détermine la position et l'époque (ex : jardin_08-2026.jpg → position
+        « jardin », août 2026). Sélectionnez plusieurs fichiers pour ajouter d'un coup plusieurs
+        positions, ou plusieurs dates pour une même position.
+      </p>
+    </div>
+
+    <div id="import-file-list"></div>
+
+    <div style="display:flex; gap:8px; margin-top:4px;">
+      <button class="btn-primary" style="flex:1;" id="import-btn-submit" onclick="submitImport()">Importer</button>
+      <button style="flex:1;" onclick="closeImportModal()">Fermer</button>
+    </div>
+  </div>
+
   <a-scene webxr="optionalFeatures: hit-test, local-floor">
     <a-assets>
       <img id="fleche-img" src="assets/fleche.png">
@@ -461,6 +516,8 @@
     const HOTSPOT_SPAWN_DISTANCE = 4.0;
     const SPAWN_HEIGHT = -1.0;
     const FADE_MS = 320;
+    // Doit rester cohérent avec FILENAME_RE côté server.py / generate_config.py
+    const UPLOAD_FILENAME_RE = /^(.+)_(\d{2})-(\d{4})\.(jpe?g|png)$/i;
 
     let APP_DATA = {};
     let currentLieuKey = "";
@@ -472,6 +529,8 @@
     let pendingItemData = null;
     let selectedItem = null;         // { type: 'arrow'|'hotspot', index: n }
 
+    let importSelectedFiles = [];    // [{ file, parsed, status, overwrite, message }]
+
     // =========================================================================
     // UTILITAIRES
     // =========================================================================
@@ -481,6 +540,15 @@
       const nameWithoutExt = fileName.replace(/\.(jpg|jpeg|png)$/i, '');
       const parts = nameWithoutExt.split('_');
       return parts[parts.length - 1];
+    }
+
+    function parseUploadFilename(filename) {
+      const m = filename.match(UPLOAD_FILENAME_RE);
+      if (!m) return null;
+      const [, position, month, year] = m;
+      const monthNum = parseInt(month, 10);
+      if (monthNum < 1 || monthNum > 12) return null;
+      return { position, month, year };
     }
 
     function showLoading(state) {
@@ -534,26 +602,12 @@
 
         const lieuxKeys = Object.keys(APP_DATA);
         if (lieuxKeys.length === 0) {
-          document.getElementById('error-msg').innerText = "config.json est vide — lancez generate_config.py.";
+          document.getElementById('error-msg').innerText = "config.json est vide — lancez generate_config.py ou importez une photo depuis le mode éditeur.";
           showLoading(false);
           return;
         }
 
-        lieuxKeys.forEach(lieu => {
-          if (!APP_DATA[lieu].positions) return;
-          Object.keys(APP_DATA[lieu].positions).forEach(pos => {
-            const posData = APP_DATA[lieu].positions[pos];
-            if (posData.photos && posData.photos.length > 0) {
-              if (posData.currentDateIdx === undefined || posData.currentDateIdx >= posData.photos.length) {
-                posData.currentDateIdx = posData.photos.length - 1;
-              }
-            } else {
-              posData.currentDateIdx = 0;
-            }
-            if (!posData.arrows) posData.arrows = [];
-            if (!posData.hotspots) posData.hotspots = [];
-          });
-        });
+        normalizeAppData();
 
         document.getElementById('main-panel').style.display = 'flex';
         populateLieuDropdown();
@@ -565,6 +619,27 @@
       } finally {
         showLoading(false);
       }
+    }
+
+    // S'assure que chaque position a bien ses champs par défaut. Appelé après
+    // le chargement initial et après chaque import/suppression, puisque
+    // APP_DATA est alors remplacé par la config renvoyée par le serveur.
+    function normalizeAppData() {
+      Object.keys(APP_DATA).forEach(lieu => {
+        if (!APP_DATA[lieu].positions) return;
+        Object.keys(APP_DATA[lieu].positions).forEach(pos => {
+          const posData = APP_DATA[lieu].positions[pos];
+          if (posData.photos && posData.photos.length > 0) {
+            if (posData.currentDateIdx === undefined || posData.currentDateIdx >= posData.photos.length) {
+              posData.currentDateIdx = posData.photos.length - 1;
+            }
+          } else {
+            posData.currentDateIdx = 0;
+          }
+          if (!posData.arrows) posData.arrows = [];
+          if (!posData.hotspots) posData.hotspots = [];
+        });
+      });
     }
 
     // ==========================================
@@ -858,6 +933,7 @@
     function hideModals() {
       document.getElementById('link-modal').style.display = 'none';
       document.getElementById('hotspot-modal').style.display = 'none';
+      document.getElementById('import-modal').style.display = 'none';
     }
 
     function openArrowModal(arrowIdx) {
@@ -916,7 +992,6 @@
       const targetPos = document.getElementById('modal-select-position').value;
       const arrows = APP_DATA[currentLieuKey].positions[currentPosKey].arrows;
       if (selectedItem && selectedItem.type === 'arrow') {
-        console.log("HELLO")
         arrows[selectedItem.index].targetLieu = targetLieu;
         arrows[selectedItem.index].targetPos = targetPos;
       } else if (pendingItemData) {
@@ -980,7 +1055,7 @@
     }
 
     // ==========================================
-    // SUPPRESSION / FERMETURE COMMUNES
+    // SUPPRESSION / FERMETURE COMMUNES (flèches / hotspots posés)
     // ==========================================
     function deleteSelectedItem() {
       if (!selectedItem) { closeModal(); return; }
@@ -999,6 +1074,249 @@
       selectedItem = null;
       pendingItemData = null;
       pendingItemType = null;
+    }
+
+    // =========================================================================
+    // IMPORT DE PHOTOS (nouvelle position / nouvelle date / nouveau lieu)
+    // =========================================================================
+    function openImportModal() {
+      hideModals();
+      importSelectedFiles = [];
+      document.getElementById('import-file-input').value = '';
+      document.getElementById('import-file-list').innerHTML = '';
+      const btn = document.getElementById('import-btn-submit');
+      btn.disabled = false;
+      btn.innerText = 'Importer';
+      populateImportLieuDropdown();
+      document.getElementById('import-modal').style.display = 'flex';
+    }
+
+    function closeImportModal() {
+      document.getElementById('import-modal').style.display = 'none';
+    }
+
+    function populateImportLieuDropdown() {
+      const select = document.getElementById('import-select-lieu');
+      select.innerHTML = '';
+      Object.keys(APP_DATA).forEach(lieuKey => {
+        const opt = document.createElement('option');
+        opt.value = lieuKey;
+        opt.innerText = APP_DATA[lieuKey].label || lieuKey;
+        select.appendChild(opt);
+      });
+      const newOpt = document.createElement('option');
+      newOpt.value = '__new__';
+      newOpt.innerText = '➕ Nouveau lieu…';
+      select.appendChild(newOpt);
+
+      select.value = (currentLieuKey && APP_DATA[currentLieuKey]) ? currentLieuKey : (Object.keys(APP_DATA)[0] || '__new__');
+      onImportLieuChange(select.value);
+    }
+
+    function onImportLieuChange(value) {
+      document.getElementById('import-new-lieu-group').style.display = (value === '__new__') ? 'flex' : 'none';
+    }
+
+    function onImportFilesSelected(fileList) {
+      importSelectedFiles = Array.from(fileList).map(file => {
+        const parsed = parseUploadFilename(file.name);
+        return {
+          file,
+          parsed,
+          status: parsed ? 'pending' : 'error',
+          message: parsed ? '' : "Nom invalide — attendu POSITION_MM-AAAA.jpg",
+          overwrite: false,
+          thumbUrl: /^image\//.test(file.type) ? URL.createObjectURL(file) : null,
+        };
+      });
+      renderImportFileList();
+    }
+
+    function renderImportFileList() {
+      const container = document.getElementById('import-file-list');
+      container.innerHTML = '';
+      importSelectedFiles.forEach((entry) => {
+        const row = document.createElement('div');
+        row.className = 'import-file-row' + (entry.status === 'conflict' ? ' conflict' : '');
+
+        let statusColor = 'var(--text-muted)';
+        let statusText = 'En attente';
+        if (entry.status === 'error') { statusColor = 'var(--danger)'; statusText = '⚠️ ' + entry.message; }
+        if (entry.status === 'success') { statusColor = 'var(--success)'; statusText = '✅ Importée'; }
+        if (entry.status === 'conflict') { statusColor = 'var(--accent-time)'; statusText = '⚠️ Existe déjà — cliquer pour écraser'; }
+        if (entry.status === 'uploading') { statusColor = 'var(--accent-space)'; statusText = '⏳ Envoi…'; }
+
+        const infoLine = entry.parsed
+          ? `Position « ${entry.parsed.position} » — ${entry.parsed.month}/${entry.parsed.year}`
+          : entry.file.name;
+
+        const thumbHtml = entry.thumbUrl ? `<img class="thumb" src="${entry.thumbUrl}">` : '';
+
+        row.innerHTML = `
+          ${thumbHtml}
+          <div class="info">
+            <div class="fname">${entry.file.name}</div>
+            <div class="fname" style="color:var(--text-muted); font-size:11px;">${infoLine}</div>
+            <div class="status" style="color:${statusColor};">${statusText}</div>
+          </div>`;
+
+        if (entry.status === 'conflict') {
+          row.onclick = () => { entry.overwrite = true; entry.status = 'pending'; renderImportFileList(); };
+        }
+        container.appendChild(row);
+      });
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+        reader.onerror = () => reject(reader.error || new Error('Lecture du fichier impossible'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function submitImport() {
+      const lieuSelectVal = document.getElementById('import-select-lieu').value;
+      let lieu, isNewLieu;
+      if (lieuSelectVal === '__new__') {
+        lieu = document.getElementById('import-new-lieu-name').value.trim();
+        if (!lieu) { alert("Merci de saisir un nom pour le nouveau lieu."); return; }
+        isNewLieu = true;
+      } else {
+        lieu = lieuSelectVal;
+        isNewLieu = false;
+      }
+
+      const toUpload = importSelectedFiles.filter(e => e.parsed && (e.status === 'pending'));
+      if (toUpload.length === 0) {
+        alert("Aucun fichier valide à importer (vérifiez le nom des fichiers).");
+        return;
+      }
+
+      const btn = document.getElementById('import-btn-submit');
+      btn.disabled = true;
+      btn.innerText = 'Import en cours…';
+
+      let lastSuccessTarget = null;
+
+      for (const entry of toUpload) {
+        entry.status = 'uploading';
+        renderImportFileList();
+        try {
+          const base64 = await fileToBase64(entry.file);
+          const resp = await fetch('/api/upload-photo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lieu, isNewLieu, filename: entry.file.name,
+              imageBase64: base64, overwrite: !!entry.overwrite,
+            }),
+          });
+          const data = await resp.json();
+          if (data.status === 'conflict') {
+            entry.status = 'conflict';
+          } else if (data.status === 'success') {
+            entry.status = 'success';
+            APP_DATA = data.config;
+            normalizeAppData();
+            lastSuccessTarget = { lieu: data.lieu, position: data.position };
+            isNewLieu = false; // le lieu existe désormais pour les fichiers suivants
+          } else {
+            entry.status = 'error';
+            entry.message = data.message || 'Erreur inconnue';
+          }
+        } catch (err) {
+          entry.status = 'error';
+          entry.message = err.message || String(err);
+        }
+        renderImportFileList();
+      }
+
+      btn.disabled = false;
+      btn.innerText = 'Importer';
+
+      const stillPending = importSelectedFiles.some(e => e.status === 'pending' || e.status === 'conflict');
+      if (!stillPending) {
+        document.getElementById('import-file-input').value = '';
+      }
+
+      if (lastSuccessTarget) {
+        populateLieuDropdown();
+        populateImportLieuDropdown();
+        selectLieu(lastSuccessTarget.lieu);
+        loadPanorama(lastSuccessTarget.lieu, lastSuccessTarget.position);
+      }
+    }
+
+    // =========================================================================
+    // SUPPRESSION D'UNE POSITION / D'UN LIEU ENTIER
+    // =========================================================================
+    async function deleteCurrentPosition() {
+      if (!currentLieuKey || !currentPosKey) return;
+      const lieuLabel = (APP_DATA[currentLieuKey] && APP_DATA[currentLieuKey].label) || currentLieuKey;
+      const nbPositions = Object.keys(APP_DATA[currentLieuKey].positions).length;
+      const extraWarning = nbPositions <= 1
+        ? "\n\nC'est la dernière position de ce lieu : le lieu entier sera donc supprimé."
+        : "";
+      if (!confirm(`Supprimer définitivement la position « ${currentPosKey} » (${lieuLabel}) ?\nToutes les photos associées seront effacées du disque.${extraWarning}`)) {
+        return;
+      }
+
+      try {
+        const resp = await fetch('/api/delete-position', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lieu: currentLieuKey, position: currentPosKey }),
+        });
+        const data = await resp.json();
+        if (data.status !== 'success') { alert('Erreur : ' + (data.message || 'suppression impossible')); return; }
+        APP_DATA = data.config;
+        normalizeAppData();
+        if (data.lieuRemoved) alert("La dernière position a été supprimée : le lieu a été supprimé également.");
+        afterStructuralDelete();
+      } catch (err) {
+        alert('Erreur réseau : ' + err.message);
+      }
+    }
+
+    async function deleteCurrentLieu() {
+      if (!currentLieuKey) return;
+      const lieuLabel = (APP_DATA[currentLieuKey] && APP_DATA[currentLieuKey].label) || currentLieuKey;
+      if (!confirm(`Supprimer définitivement le lieu « ${lieuLabel} » et TOUTES ses positions/photos ?\nCette action est irréversible.`)) {
+        return;
+      }
+
+      try {
+        const resp = await fetch('/api/delete-lieu', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lieu: currentLieuKey }),
+        });
+        const data = await resp.json();
+        if (data.status !== 'success') { alert('Erreur : ' + (data.message || 'suppression impossible')); return; }
+        APP_DATA = data.config;
+        normalizeAppData();
+        afterStructuralDelete();
+      } catch (err) {
+        alert('Erreur réseau : ' + err.message);
+      }
+    }
+
+    function afterStructuralDelete() {
+      isHasUnsavedChanges = false;
+      const remainingLieux = Object.keys(APP_DATA);
+      if (remainingLieux.length === 0) {
+        document.getElementById('main-panel').style.display = 'none';
+        document.getElementById('editor-panel').style.display = 'none';
+        document.getElementById('error-msg').innerText = "Plus aucun lieu configuré — importez une photo pour recommencer.";
+        currentLieuKey = '';
+        currentPosKey = '';
+        return;
+      }
+      populateLieuDropdown();
+      const nextLieu = APP_DATA[currentLieuKey] ? currentLieuKey : remainingLieux[0];
+      selectLieu(nextLieu);
     }
 
     // ==========================================

@@ -5,6 +5,11 @@ sans écraser les flèches et points d'information déjà configurés.
 
 Structure attendue :
   assets/<LIEU>/<POSITION>/<POSITION>_<MM-AAAA>.jpg
+
+Ce module est à la fois exécutable en CLI et importable depuis server.py
+(fonction build_config()) afin que l'import de photo depuis l'interface web
+puisse relancer un scan complet du disque et régénérer config.json de façon
+cohérente, sans dupliquer la logique de scan à deux endroits.
 """
 
 import json
@@ -51,6 +56,11 @@ def load_existing_config():
 
 
 def scan_assets(config):
+    """Parcourt assets/ et met à jour `config` en place (ajoute/actualise les
+    lieux, positions et listes de photos). Ne supprime JAMAIS un lieu ou une
+    position qui existerait encore dans `config` mais plus sur le disque :
+    la suppression est gérée explicitement côté serveur (voir server.py),
+    pas par ce scan additif."""
     if not os.path.isdir(ASSETS_DIR):
         log.warning("Dossier '%s' introuvable — rien à scanner.", ASSETS_DIR)
         return config
@@ -95,9 +105,16 @@ def scan_assets(config):
     return config
 
 
-def main():
+def build_config():
+    """Charge le config.json existant puis le complète en scannant assets/.
+    Utilisé aussi bien par le CLI que par server.py après un import de photo."""
     config = load_existing_config()
     config = scan_assets(config)
+    return config
+
+
+def main():
+    config = build_config()
 
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)

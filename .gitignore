@@ -1,1 +1,6 @@
 *.jpg
+*.png
+*.gif
+*.tif
+*config*
+*.json

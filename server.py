@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Serveur web léger pour l'application Chronoscope (visite virtuelle 360° temporelle).
+Serveur web léger pour l'application PearView (visite virtuelle 360° temporelle).
 
 - Sert les fichiers statiques du dossier courant (index.html, assets/, aframe.min.js...)
 - Expose POST /api/save-config pour sauvegarder config.json depuis le mode éditeur
@@ -18,8 +18,8 @@ import sys
 from datetime import datetime
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
-PORT = int(os.environ.get("CHRONOSCOPE_PORT", 8000))
-HOST = os.environ.get("CHRONOSCOPE_HOST", "0.0.0.0")
+PORT = int(os.environ.get("PEARVIEW_PORT", 1500))
+HOST = os.environ.get("PEARVIEW_HOST", "0.0.0.0")
 CONFIG_FILE = "config.json"
 BACKUP_DIR = "backups"
 MAX_BACKUPS = 20
@@ -30,7 +30,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%H:%M:%S",
 )
-log = logging.getLogger("chronoscope")
+log = logging.getLogger("pearview")
 
 
 class ConfigValidationError(Exception):
@@ -104,7 +104,7 @@ def save_with_backup(raw_bytes):
     log.info("config.json mis à jour (%d lieu(x))", len(data))
 
 
-class ChronoscopeHandler(SimpleHTTPRequestHandler):
+class PearViewHandler(SimpleHTTPRequestHandler):
     def log_message(self, fmt, *args):
         log.info("%s - %s", self.address_string(), fmt % args)
 
@@ -149,12 +149,12 @@ class ChronoscopeHandler(SimpleHTTPRequestHandler):
 
 def main():
     try:
-        server = HTTPServer((HOST, PORT), ChronoscopeHandler)
+        server = HTTPServer((HOST, PORT), PearViewHandler)
     except OSError as exc:
         log.error("Impossible de démarrer le serveur sur %s:%s (%s)", HOST, PORT, exc)
         sys.exit(1)
 
-    log.info("Chronoscope actif : http://%s:%s (Ctrl+C pour arrêter)", HOST if HOST != "0.0.0.0" else "localhost", PORT)
+    log.info("PearView actif : http://%s:%s (Ctrl+C pour arrêter)", HOST if HOST != "0.0.0.0" else "localhost", PORT)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

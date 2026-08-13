@@ -1,6 +1,6 @@
 # 🍐 PearView
 
-**PearView** est une application web auto-hébergée de visite virtuelle 360° interactive et temporelle. Elle permet d'explorer des lieux en immersion VR/360° et de voyager dans le temps en comparant différentes époques d'une même position.
+**PearView** is a self-hosted, interactive, and time-travel WebXR 360° virtual tour web application. It allows you to explore locations in immersive VR/360° and travel back and forth in time to compare different eras from the exact same place.
 
 ![Version](https://img.shields.io/badge/version-1.0.0-emerald)
 ![Docker](https://img.shields.io/badge/Docker-ready-blue)
@@ -8,130 +8,131 @@
 
 ---
 
-## ✨ Fonctionnalités
+## ✨ Features
 
-* **Navigation WebXR / VR 360°** : Exploration fluide de panoramas 360° basée sur [A-Frame](https://aframe.io/).
-* **Sélecteur Temporel ("Voyage dans le temps")** : Passage instantané entre différentes dates (années/mois) pour une même position.
-* **Éditeur Visuel Intégré** :
-  * **Flèches de navigation** : Pose et orientation de liens inter-positions directement dans l'espace 3D avec ajustement pas-à-pas (nudge).
-  * **Points d'information (Hotspots)** : Ajout de marqueurs interactifs (titre, texte, image modale).
-* **Gestion de Contenu sans Base de Données** :
-  * **Import Glisser-Déposer** : Téléversement direct depuis l'UI avec détection de doublons (hash SHA-256) et gestion des conflits.
-  * **Renommage & Suppression** : Renommage à chaud des lieux et positions avec répercussion automatique des dossiers sur le disque et des flèches liées.
-  * **Rescan Automatique** : Tâche Cron (toutes les 5 min) pour mettre à jour la configuration en cas d'ajout manuel de fichiers sur le disque.
-* **Sécurité & Résilience** : Écriture atomique des fichiers de configuration et sauvegardes horodatées automatiques (`data/backups/`).
-
----
-
-## 🛠️ Prérequis
-
-* **Docker** et **Docker Compose** installés sur votre machine.
-* *Alternative hors Docker* : Python 3.11+ (bibliothèque standard uniquement, aucune dépendance `pip` requise).
+* **WebXR / 360° VR Navigation**: Smooth exploration of 360° panoramas powered by [A-Frame](https://aframe.io/).
+* **Time Selector ("Time Travel")**: Instant switching between different dates (years/months) for any given place.
+* **Built-in Visual Editor**:
+  * **Navigation Arrows**: Place and align inter-place links directly in 3D space with step-by-step adjustments (nudge).
+  * **Info Hotspots**: Add interactive markers (title, text, image pop-ups).
+* **Database-free Content Management**:
+  * **Drag-and-Drop Import**: Direct upload from the UI featuring duplicate detection (SHA-256 hash) and conflict handling.
+  * **Renaming & Deletion**: Hot-renaming of locations and places with instant filesystem folder updates and linked arrow synchronization.
+  * **Automatic Rescan**: Cron job running every 5 minutes to keep the configuration updated if files are manually added to disk.
+* **Security & Resilience**: Atomic config file writes and automated timestamped backups (`data/backups/`).
 
 ---
 
-## 🚀 Installation Rapide (Docker)
+## 🛠️ Prerequisites
 
-### 1. Cloner le projet
+* **Docker** and **Docker Compose** installed on your host system.
+* *Non-Docker Alternative*: Python 3.11+ (uses standard library only—no `pip` dependencies required).
+
+---
+
+## 🚀 Quick Start (Docker)
+
+### 1. Clone the repository
 ```bash
-git clone https://github.com/leopoldabgn/PearView.git
+git clone [https://github.com/leopoldabgn/PearView.git](https://github.com/leopoldabgn/PearView.git)
 cd PearView
 ```
 
-### 2. Démarrer l'application
+### 2. Start the application
 
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
-L'application est immédiatement accessible à l'adresse : **`http://localhost:1500`** (ou l'IP de votre serveur).
+The application will be immediately accessible at **`http://localhost:1500`** (or your server's IP address).
 
 ---
 
-## 📁 Convention de Nommage des Fichiers
+## 📁 File Naming Convention
 
-Pour que le scan automatique associe correctement les dates et positions, les photos 360° doivent être nommées selon la convention suivante :
+For automatic scanning to properly map dates and places, 360° photos must strictly follow this naming convention:
 
 ```text
-POSITION_MM-AAAA.jpg
+PLACE_MM-YYYY.jpg
 ```
 
-### Exemple de structure sous `data/assets/` :
+### Example structure inside `data/assets/`:
 
 ```text
 data/
 └── assets/
-    ├── Maison/
-    │   ├── jardin/
-    │   │   ├── jardin_08-2020.jpg
-    │   │   └── jardin_08-2026.jpg
-    │   └── entree/
-    │       └── entree_01-2024.png
-    └── fleche.png
+    ├── House/
+    │   ├── garden/
+    │   │   ├── garden_08-2020.jpg
+    │   │   └── garden_08-2026.jpg
+    │   └── entrance/
+    │       └── entrance_01-2024.png
+    └── arrow.png
 ```
 
 ---
 
-## Guide d'Utilisation
+## User Guide
 
-### Mode Consultation
+### Viewer Mode
 
-* **Navigation** : Cliquez sur les flèches au sol pour changer de position ou de lieu.
-* **Boussole** : Suivez le cap en haut à droite pour vous repérer.
-* **Époque** : Utilisez le sélecteur de date (ou les boutons `A`/`B` sur manettes VR) pour changer d'année/mois.
+* **Navigation**: Click ground arrows to move between places or locations.
+* **Compass**: Follow the top-right compass indicator to keep your bearings.
+* **Time Travel**: Use the date selector (or the `A`/`B` buttons on VR controllers) to switch years/months.
 
-### Mode Éditeur (🛠️)
+### Editor Mode (🛠️)
 
-1. Cochez **Mode Éditeur** dans le panneau supérieur gauche.
-2. Visez un endroit au sol avec le viseur central.
-3. Cliquez sur **➕ Flèche de navigation** ou **ℹ️ Point d'information**.
-4. Ajustez la position, la rotation et la cible de l'élément dans la modale.
-5. Cliquez sur **💾 Sauvegarder sur le serveur** pour persister vos modifications.
+1. Check **Editor Mode** in the top-left panel.
+2. Aim the central crosshair at a spot on the floor.
+3. Click **➕ Navigation Arrow** or **ℹ️ Info Hotspot**.
+4. Adjust position, rotation, and target place in the modal pop-up.
+5. Click **💾 Save to Server** to persist your changes.
 
 ---
 
-## ⚙️ Commandes Utiles & CLI
+## ⚙️ Useful Commands & CLI
 
-### Régénérer la configuration manuellement
+### Manually Regenerate Configuration
 
-Vous pouvez relancer le scan des photos sur le disque à tout moment :
+You can trigger a manual scan of on-disk photos at any time:
 
-* **Depuis l'interface web** : Bouton `🔄 Rescanner assets/` dans le mode éditeur.
-* **En ligne de commande (dans le conteneur)** :
+* **Via the Web Interface**: Click the `🔄 Rescan assets/` button in Editor Mode.
+* **Via Command Line (inside container)**:
+
 ```bash
 docker exec -it pearview python3 generate_config.py
 ```
 
-### Variables d'Environnement (dans `docker-compose.yml`)
+### Environment Variables (in `docker-compose.yml`)
 
-| Variable | Valeur par défaut | Description |
+| Variable | Default Value | Description |
 | --- | --- | --- |
-| `PEARVIEW_PORT` | `1500` | Port d'écoute du serveur HTTP |
-| `PEARVIEW_HOST` | `0.0.0.0` | Adresse de liaison du serveur |
+| `PEARVIEW_PORT` | `1500` | HTTP server listening port |
+| `PEARVIEW_HOST` | `0.0.0.0` | Server binding host address |
 
 ---
 
-## 🏗️ Architecture du Projet
+## 🏗️ Project Architecture
 
 ```text
  PearView/
- ├── data/                  # Volume persistant (Montage Docker)
- │   ├── assets/            # Dossier contenant vos photos (Lieu/Position/...)
- │   ├── backups/           # Sauvegardes automatiques (config_JJ-MM-AAAA.json)
- │   └── config.json        # Fichier de configuration principal généré
- ├── lib/                   # Dépendances JS locales (A-Frame)
- ├── Dockerfile             # Image Docker (Python Slim + Cron)
- ├── docker-compose.yml     # Configuration du service Docker
- ├── entrypoint.sh          # Script d'initialisation du conteneur
- ├── generate_config.py     # Script de scan et génération du config.json
- ├── server.py              # Serveur HTTP standard Python & API REST
- └── index.html             # Application Frontend WebGL / A-Frame
+ ├── data/                  # Persistent volume (Docker mount)
+ │   ├── assets/            # Directory containing your photos (Location/Place/...)
+ │   ├── backups/           # Automated backups (config_DD-MM-YYYY.json)
+ │   └── config.json        # Main generated configuration file
+ ├── lib/                   # Local JS dependencies (A-Frame)
+ ├── Dockerfile             # Docker image (Python Slim + Cron)
+ ├── docker-compose.yml     # Docker service configuration
+ ├── entrypoint.sh          # Container initialization script
+ ├── generate_config.py     # Asset scanning and config generation script
+ ├── server.py              # Python standard HTTP server & REST API
+ └── index.html             # WebGL / A-Frame Frontend application
 ```
 
 ---
 
-## 📄 Licence
+## 📄 License
 
 ```
-Ce projet est sous licence MIT. Libre à vous de l'utiliser, le modifier et l'héberger.
+This project is licensed under the MIT License. Feel free to use, modify, and self-host it.
 ```

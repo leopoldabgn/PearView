@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -7,10 +7,10 @@
   <script src="lib/aframe.min.js"></script>
   <style>
     /* ==========================================================
-       DESIGN TOKENS — thème "Pear View"
-       Palette pensée pour un instrument de mesure du temps :
-       ardoise profonde + laiton/cuivre (photo ancienne) + cyan
-       (repère spatial), typo mono pour tout ce qui date/mesure.
+       DESIGN TOKENS - "Pear View" theme
+       Palette designed for a time-measuring instrument: deep
+       slate + brass/copper (old photo) + cyan (spatial reference),
+       mono typeface for anything date/measurement related.
        ========================================================== */
     :root {
       --bg-panel: rgba(12, 16, 21, 0.88);
@@ -20,10 +20,10 @@
       --text-primary: #F1EEE7;
       --text-muted: #8B95A3;
       --cross-air:var(--accent-space);
-      --accent-time: #E8A24B;     /* cuivre — tout ce qui touche à la date */
+      --accent-time: #E8A24B;     /* copper - anything related to the date */
       --accent-time-dim: #7a5a30;
-      --old-accent-space: #33D6C0;    /* cyan — tout ce qui touche au lieu/nav */
-      --accent-space: #33d654;    /* cyan — tout ce qui touche au lieu/nav */
+      --old-accent-space: #33D6C0;    /* cyan - anything related to place/nav */
+      --accent-space: #33d654;    /* cyan - anything related to place/nav */
       --accent-space-dim: #1c732a;
       --danger: #E5584D;
       --success: #3dd65e;
@@ -40,7 +40,7 @@
     a-scene { position: absolute; inset: 0; }
 
     /* ==========================================================
-       PANNEAU PRINCIPAL (haut-gauche)
+       MAIN PANEL (top-left)
        ========================================================== */
     #ui-container {
       position: absolute;
@@ -110,7 +110,7 @@
     input[type=text] { cursor: text; }
     input[type=file] { cursor: pointer; font-size: 12px; padding: 7px 8px; }
 
-    /* Sélecteur de date : traitement "tampon photo" mono/cuivre — élément signature */
+    /* Date selector: "photo stamp" mono/copper treatment - signature element */
     #select-date {
       font-family: var(--font-mono);
       color: var(--accent-time);
@@ -138,7 +138,7 @@
 
     #error-msg { color: var(--danger); font-weight: 600; font-size: 12.5px; }
 
-    /* Bouton flottant pour replier le panneau sur mobile */
+    /* Floating button to collapse the panel on mobile */
     #panel-toggle {
       display: none;
       position: absolute;
@@ -154,8 +154,31 @@
       backdrop-filter: blur(10px);
     }
 
+    /* Language toggle button (top-right, next to the compass) */
+    /* Language toggle button (top-right) */
+    /* Language toggle button (top-right) */
+    #lang-toggle {
+      position: absolute;
+      top: 14px;
+      right: 270px;
+      z-index: 1000;
+      background: var(--bg-panel-solid);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: .06em;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+      cursor: pointer;
+    }
+    #lang-toggle:hover { border-color: var(--accent-space); }
+
     /* ==========================================================
-       VISEUR ÉDITEUR
+       EDITOR CROSSHAIR
        ========================================================== */
     #crosshair {
       position: absolute; top: 50%; left: 50%;
@@ -168,7 +191,7 @@
     #crosshair::after { top: 0; left: 7px; width: 2px; height: 16px; }
 
     /* ==========================================================
-       BOUSSOLE / MINI-CARTE (haut-droite)
+       COMPASS / MINI-MAP (top-right)
        ========================================================== */
     #compass-wrap {
       position: absolute;
@@ -196,7 +219,7 @@
     #compass-here { color: var(--accent-space); font-weight: 700; }
 
     /* ==========================================================
-       MODALES (config flèche / hotspot / import)
+       MODALS (arrow / hotspot / import configuration)
        ========================================================== */
     .modal {
       position: absolute;
@@ -223,7 +246,7 @@
 
     .nudge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 4px 0; }
 
-    /* Panneau d'infos hotspot (mode consultation) */
+    /* Hotspot info panel (view mode) */
     #hotspot-info {
       position: absolute;
       bottom: 24px; left: 50%;
@@ -244,7 +267,7 @@
     #hotspot-info img { width: 100%; border-radius: var(--radius-sm); display: block; margin-bottom: 8px; }
     #hotspot-info .close-x { position: absolute; top: 8px; right: 10px; cursor: pointer; color: var(--text-muted); font-size: 16px; background: none; border: none; padding: 4px; }
 
-    /* Liste des fichiers en cours d'import */
+    /* List of files being imported */
     #import-file-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
     .import-file-row {
       display: flex; align-items: center; gap: 8px;
@@ -258,7 +281,7 @@
     .import-file-row.conflict { cursor: pointer; border-color: var(--accent-time-dim); }
     .import-file-row.duplicate { cursor: pointer; border-color: var(--accent-time-dim); }
 
-    /* Zone de glisser-déposer pour l'import de photos */
+    /* Drop zone for photo import */
     #import-dropzone {
       border: 1.5px dashed var(--border-strong);
       border-radius: var(--radius-sm);
@@ -272,7 +295,7 @@
     #import-dropzone p.hint { font-size: 10.5px; color: var(--text-muted); margin: 6px 0 0; line-height: 1.4; }
 
     /* ==========================================================
-       RESPONSIVE MOBILE
+       MOBILE RESPONSIVE
        ========================================================== */
     @media (max-width: 640px) {
       #ui-container { max-width: calc(100vw - 76px); transition: transform .25s ease, opacity .25s ease; }
@@ -280,10 +303,11 @@
       #panel-toggle { display: flex; }
       #compass-wrap { padding: 8px; top: 62px; }
       #compass-svg { width: 68px; height: 68px; }
+      #lang-toggle { top: 14px; right: 14px; }
       #hotspot-info { bottom: 14px; width: calc(100vw - 24px); }
     }
 
-    /* Timer de chargement discret */
+    /* Discreet loading timer */
     #load-indicator {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
       z-index: 997; color: var(--text-muted); font-family: var(--font-mono); font-size: 12px;
@@ -295,11 +319,12 @@
 <body>
 
   <div id="crosshair"></div>
-  <div id="load-indicator">CHARGEMENT…</div>
+  <div id="load-indicator" data-i18n="loading">LOADING…</div>
 
   <button id="panel-toggle" onclick="togglePanelCollapse()">☰</button>
+  <button id="lang-toggle" onclick="toggleLanguage()">FR</button>
 
-  <!-- UI 2D principale -->
+  <!-- Main 2D UI -->
   <div id="ui-container">
     <div id="error-msg"></div>
 
@@ -308,71 +333,71 @@
       <div class="panel-title"><img src="favicon.ico" style="width:20px;height:20px;border-radius:2px;"> PEAR'VIEW</div>
       <label class="checkbox-container">
         <input type="checkbox" id="toggle-editor" onchange="toggleEditorMode(this.checked)">
-        <span>🛠️ Mode éditeur</span>
+        <span data-i18n="editorModeLabel">🛠️ Editor mode</span>
       </label>
 
       <hr class="sep">
 
       <div class="ui-group">
-        <label for="select-lieu">📍 Lieu</label>
-        <select id="select-lieu" onchange="onLieuChange(this.value)"></select>
+        <label for="select-place" data-i18n="placeLabel">📍 Place</label>
+        <select id="select-place" onchange="onPlaceChange(this.value)"></select>
       </div>
 
       <div class="ui-group">
-        <label for="select-position">🎯 Position</label>
+        <label for="select-position" data-i18n="positionLabel">🎯 Position</label>
         <select id="select-position" onchange="onPositionChange(this.value)"></select>
       </div>
 
       <div class="ui-group">
-        <label for="select-date">📅 Époque</label>
+        <label for="select-date" data-i18n="dateLabel">📅 Era</label>
         <select id="select-date" onchange="onDateChange(this.value)"></select>
       </div>
     </div>
 
-    <!-- PANNEAU MODE ÉDITEUR -->
+    <!-- EDITOR MODE PANEL -->
     <div class="ui-panel" id="editor-panel" style="display:none;">
-      <div class="panel-title" style="color:var(--accent-time);"><span class="dot" style="background:var(--accent-time); box-shadow:0 0 6px var(--accent-time);"></span>ÉDITION</div>
+      <div class="panel-title" style="color:var(--accent-time);"><span class="dot" style="background:var(--accent-time); box-shadow:0 0 6px var(--accent-time);"></span><span data-i18n="editingTitle">EDITING</span></div>
 
       <div class="ui-group">
-        <label>Outils de pose</label>
-        <button id="btn-add-arrow" class="btn-primary" onclick="spawnItemAtCenter('arrow')">➕ Flèche de navigation</button>
-        <button id="btn-add-hotspot" onclick="spawnItemAtCenter('hotspot')" style="border-color: var(--accent-time-dim);">ℹ️ Point d'information</button>
+        <label data-i18n="poseToolsLabel">Placement tools</label>
+        <button id="btn-add-arrow" class="btn-primary" onclick="spawnItemAtCenter('arrow')" data-i18n="addArrowBtn">➕ Navigation arrow</button>
+        <button id="btn-add-hotspot" onclick="spawnItemAtCenter('hotspot')" style="border-color: var(--accent-time-dim);" data-i18n="addHotspotBtn">ℹ️ Info point</button>
       </div>
-      <p style="font-size: 11px; color: var(--text-muted); margin: 0; line-height:1.5;">
-        1. Visez l'endroit voulu au sol.<br>
-        2. Choisissez un outil ci-dessus.<br>
-        3. Cliquez sur un élément posé pour l'ajuster, le relier ou le supprimer.
+      <p style="font-size: 11px; color: var(--text-muted); margin: 0; line-height:1.5;" data-i18n-html="instructionsText">
+        1. Aim at the desired spot on the ground.<br>
+        2. Choose a tool above.<br>
+        3. Click on a placed item to adjust, link, or delete it.
       </p>
 
       <hr class="sep">
 
       <div class="ui-group">
-        <label>Renommer</label>
-        <button onclick="openRenameLieuModal()">✏️ Renommer ce lieu</button>
-        <button onclick="openRenamePositionModal()">✏️ Renommer cette position</button>
+        <label data-i18n="renameLabel">Rename</label>
+        <button onclick="openRenamePlaceModal()" data-i18n="renamePlaceBtn">✏️ Rename this place</button>
+        <button onclick="openRenamePositionModal()" data-i18n="renamePositionBtn">✏️ Rename this position</button>
       </div>
 
       <hr class="sep">
 
       <div class="ui-group">
-        <label>Gestion du contenu</label>
-        <button class="btn-primary" onclick="openImportModal()">📥 Importer des photos…</button>
-        <button onclick="rescanAssets()">🔄 Rescanner assets/</button>
-        <button class="btn-danger" onclick="deleteCurrentPosition()">🗑️ Supprimer cette position</button>
-        <button class="btn-danger" onclick="deleteCurrentLieu()">🗑️ Supprimer ce lieu entier</button>
+        <label data-i18n="contentMgmtLabel">Content management</label>
+        <button class="btn-primary" onclick="openImportModal()" data-i18n="importBtn">📥 Import photos…</button>
+        <button onclick="rescanAssets()" data-i18n="rescanBtn">🔄 Rescan assets/</button>
+        <button class="btn-danger" onclick="deleteCurrentPosition()" data-i18n="deletePositionBtn">🗑️ Delete this position</button>
+        <button class="btn-danger" onclick="deleteCurrentPlace()" data-i18n="deletePlaceBtn">🗑️ Delete this entire place</button>
       </div>
 
-      <button class="btn-success" onclick="saveConfiguration()">💾 Sauvegarder sur le serveur</button>
+      <button class="btn-success" onclick="saveConfiguration()" data-i18n="saveBtn">💾 Save to server</button>
     </div>
   </div>
 
-  <!-- BOUSSOLE -->
+  <!-- COMPASS -->
   <div id="compass-wrap">
     <svg id="compass-svg" viewBox="0 0 100 100">
       <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
       <text x="50" y="14" text-anchor="middle" fill="#8B95A3" font-size="9" font-family="monospace">N</text>
       <text x="50" y="93" text-anchor="middle" fill="#8B95A3" font-size="9" font-family="monospace">S</text>
-      <text x="8" y="53" text-anchor="middle" fill="#8B95A3" font-size="9" font-family="monospace">O</text>
+      <text x="8" y="53" text-anchor="middle" fill="#8B95A3" font-size="9" font-family="monospace">W</text>
       <text x="92" y="53" text-anchor="middle" fill="#8B95A3" font-size="9" font-family="monospace">E</text>
       <g id="compass-needle">
         <polygon points="50,14 45,50 55,50" fill="#33D6C0"/>
@@ -380,10 +405,10 @@
       </g>
       <circle cx="50" cy="50" r="3.5" fill="#0c1015" stroke="#33D6C0" stroke-width="1.5"/>
     </svg>
-    <div id="compass-label">Ici : <span id="compass-here">—</span></div>
+    <div id="compass-label"><span data-i18n="compassHereLabel">Here:</span> <span id="compass-here">—</span></div>
   </div>
 
-  <!-- Panneau d'infos hotspot -->
+  <!-- Hotspot info panel -->
   <div id="hotspot-info">
     <button class="close-x" onclick="closeHotspotInfo()">✕</button>
     <h4 id="hotspot-info-title"></h4>
@@ -391,130 +416,129 @@
     <p id="hotspot-info-text"></p>
   </div>
 
-  <!-- MODAL DE CONFIGURATION FLÈCHE -->
+  <!-- ARROW CONFIGURATION MODAL -->
   <div id="link-modal" class="modal accent-space">
-    <h4>🔗 Configuration de la flèche</h4>
+    <h4 data-i18n="linkModalTitle">🔗 Arrow configuration</h4>
 
     <div class="ui-group">
-      <label>Lieu cible</label>
-      <select id="modal-select-lieu" onchange="updateModalPositions()"></select>
+      <label data-i18n="targetPlaceLabel">Target place</label>
+      <select id="modal-select-place" onchange="updateModalPositions()"></select>
     </div>
     <div class="ui-group">
-      <label>Position cible</label>
+      <label data-i18n="targetPositionLabel">Target position</label>
       <select id="modal-select-position"></select>
     </div>
 
     <div id="arrow-adjustment-section" style="display:none; border-top: 1px solid var(--border); padding-top: 8px;">
-      <label style="font-size:11px; color:var(--text-muted); font-weight:bold; text-transform:uppercase;">Ajuster la position</label>
+      <label style="font-size:11px; color:var(--text-muted); font-weight:bold; text-transform:uppercase;" data-i18n="adjustPositionLabel">Adjust position</label>
       <div class="nudge-grid">
-        <button class="btn-tool" onclick="nudgeSelected('rot', 15)">⟲ Pivoter G.</button>
-        <button class="btn-tool" onclick="nudgeSelected('forward', 0.5)">⬆️ Avancer</button>
-        <button class="btn-tool" onclick="nudgeSelected('rot', -15)">⟳ Pivoter D.</button>
-        <button class="btn-tool" onclick="nudgeSelected('strafe', 0.5)">⬅️ Gauche</button>
-        <button class="btn-tool" onclick="nudgeSelected('forward', -0.5)">⬇️ Reculer</button>
-        <button class="btn-tool" onclick="nudgeSelected('strafe', -0.5)">➡️ Droite</button>
+        <button class="btn-tool" onclick="nudgeSelected('rot', 15)" data-i18n="rotateLeftBtn">⟲ Rotate L.</button>
+        <button class="btn-tool" onclick="nudgeSelected('forward', 0.5)" data-i18n="forwardBtn">⬆️ Forward</button>
+        <button class="btn-tool" onclick="nudgeSelected('rot', -15)" data-i18n="rotateRightBtn">⟳ Rotate R.</button>
+        <button class="btn-tool" onclick="nudgeSelected('strafe', 0.5)" data-i18n="leftBtn">⬅️ Left</button>
+        <button class="btn-tool" onclick="nudgeSelected('forward', -0.5)" data-i18n="backwardBtn">⬇️ Backward</button>
+        <button class="btn-tool" onclick="nudgeSelected('strafe', -0.5)" data-i18n="rightBtn">➡️ Right</button>
       </div>
       <div style="display:flex; gap:5px; margin-top:4px;">
-        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('height', 0.2)">🔼 Monter</button>
-        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('height', -0.2)">🔽 Descendre</button>
+        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('height', 0.2)" data-i18n="upBtn">🔼 Up</button>
+        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('height', -0.2)" data-i18n="downBtn">🔽 Down</button>
       </div>
       <div style="display:flex; gap:5px; margin-top:4px;">
-        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('scale', 0.2)">🔍 + Grossir</button>
-        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('scale', -0.2)">🔎 − Maigrir</button>
+        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('scale', 0.2)" data-i18n="growBtn">🔍 + Grow</button>
+        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('scale', -0.2)" data-i18n="shrinkBtn">🔎 − Shrink</button>
       </div>
     </div>
 
     <div style="display:flex; gap:8px; margin-top:8px;">
-      <button class="btn-primary" style="flex:1;" onclick="confirmArrowLink()">Valider</button>
-      <button class="btn-danger" id="modal-btn-delete" style="display:none;" onclick="deleteSelectedItem()">Supprimer</button>
-      <button style="flex:1;" onclick="closeModal()">Fermer</button>
+      <button class="btn-primary" style="flex:1;" onclick="confirmArrowLink()" data-i18n="confirmBtn">Confirm</button>
+      <button class="btn-danger" id="modal-btn-delete" style="display:none;" onclick="deleteSelectedItem()" data-i18n="deleteBtn">Delete</button>
+      <button style="flex:1;" onclick="closeModal()" data-i18n="closeBtn">Close</button>
     </div>
   </div>
 
-  <!-- MODAL DE CONFIGURATION HOTSPOT -->
+  <!-- HOTSPOT CONFIGURATION MODAL -->
   <div id="hotspot-modal" class="modal accent-time">
-    <h4>ℹ️ Point d'information</h4>
+    <h4 data-i18n="hotspotModalTitle">ℹ️ Info point</h4>
 
     <div class="ui-group">
-      <label>Titre</label>
-      <input type="text" id="hotspot-title" placeholder="Ex : L'ancienne fontaine">
+      <label data-i18n="titleLabel">Title</label>
+      <input type="text" id="hotspot-title" data-i18n-placeholder="titlePlaceholder" placeholder="E.g.: The old fountain">
     </div>
     <div class="ui-group">
-      <label>Texte</label>
-      <textarea id="hotspot-text" rows="3" placeholder="Détails, anecdote, source…"></textarea>
+      <label data-i18n="textLabel">Text</label>
+      <textarea id="hotspot-text" rows="3" data-i18n-placeholder="textPlaceholder" placeholder="Details, anecdote, source…"></textarea>
     </div>
     <div class="ui-group">
-      <label>Image (URL ou chemin, optionnel)</label>
-      <input type="text" id="hotspot-image" placeholder="data/assets/photos/fontaine.jpg">
+      <label data-i18n="imageLabel">Image (URL or path, optional)</label>
+      <input type="text" id="hotspot-image" placeholder="data/assets/photos/fountain.jpg">
     </div>
 
     <div id="hotspot-adjustment-section" style="display:none; border-top: 1px solid var(--border); padding-top: 8px;">
-      <label style="font-size:11px; color:var(--text-muted); font-weight:bold; text-transform:uppercase;">Ajuster la position</label>
+      <label style="font-size:11px; color:var(--text-muted); font-weight:bold; text-transform:uppercase;" data-i18n="adjustPositionLabel">Adjust position</label>
       <div class="nudge-grid">
-        <button class="btn-tool" onclick="nudgeSelected('rot', 15)">⟲ Pivoter G.</button>
-        <button class="btn-tool" onclick="nudgeSelected('forward', 0.5)">⬆️ Avancer</button>
-        <button class="btn-tool" onclick="nudgeSelected('rot', -15)">⟳ Pivoter D.</button>
-        <button class="btn-tool" onclick="nudgeSelected('strafe', 0.5)">⬅️ Gauche</button>
-        <button class="btn-tool" onclick="nudgeSelected('forward', -0.5)">⬇️ Reculer</button>
-        <button class="btn-tool" onclick="nudgeSelected('strafe', -0.5)">➡️ Droite</button>
+        <button class="btn-tool" onclick="nudgeSelected('rot', 15)" data-i18n="rotateLeftBtn">⟲ Rotate L.</button>
+        <button class="btn-tool" onclick="nudgeSelected('forward', 0.5)" data-i18n="forwardBtn">⬆️ Forward</button>
+        <button class="btn-tool" onclick="nudgeSelected('rot', -15)" data-i18n="rotateRightBtn">⟳ Rotate R.</button>
+        <button class="btn-tool" onclick="nudgeSelected('strafe', 0.5)" data-i18n="leftBtn">⬅️ Left</button>
+        <button class="btn-tool" onclick="nudgeSelected('forward', -0.5)" data-i18n="backwardBtn">⬇️ Backward</button>
+        <button class="btn-tool" onclick="nudgeSelected('strafe', -0.5)" data-i18n="rightBtn">➡️ Right</button>
       </div>
       <div style="display:flex; gap:5px; margin-top:4px;">
-        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('height', 0.2)">🔼 Monter</button>
-        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('height', -0.2)">🔽 Descendre</button>
+        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('height', 0.2)" data-i18n="upBtn">🔼 Up</button>
+        <button class="btn-tool" style="flex:1;" onclick="nudgeSelected('height', -0.2)" data-i18n="downBtn">🔽 Down</button>
       </div>
     </div>
 
     <div style="display:flex; gap:8px; margin-top:8px;">
-      <button class="btn-primary" style="flex:1;" onclick="confirmHotspot()">Valider</button>
-      <button class="btn-danger" id="hotspot-btn-delete" style="display:none;" onclick="deleteSelectedItem()">Supprimer</button>
-      <button style="flex:1;" onclick="closeModal()">Fermer</button>
+      <button class="btn-primary" style="flex:1;" onclick="confirmHotspot()" data-i18n="confirmBtn">Confirm</button>
+      <button class="btn-danger" id="hotspot-btn-delete" style="display:none;" onclick="deleteSelectedItem()" data-i18n="deleteBtn">Delete</button>
+      <button style="flex:1;" onclick="closeModal()" data-i18n="closeBtn">Close</button>
     </div>
   </div>
 
-  <!-- MODAL DE RENOMMAGE (lieu ou position) -->
+  <!-- RENAME MODAL (place or position) -->
   <div id="rename-modal" class="modal accent-space">
-    <h4 id="rename-modal-title">✏️ Renommer</h4>
+    <h4 id="rename-modal-title" data-i18n="renamePlaceModalTitle">✏️ Rename this place</h4>
 
     <div class="ui-group" id="rename-label-group">
-      <label>Nom affiché (libellé)</label>
-      <input type="text" id="rename-label-input" placeholder="Ex : Le Jardin">
+      <label data-i18n="displayLabelLabel">Display name (label)</label>
+      <input type="text" id="rename-label-input" data-i18n-placeholder="displayLabelPlaceholder" placeholder="E.g.: The Garden">
     </div>
     <div class="ui-group">
-      <label id="rename-key-label">Identifiant technique (dossier disque)</label>
-      <input type="text" id="rename-key-input" placeholder="Ex : jardin">
-      <p style="font-size:10.5px; color:var(--text-muted); margin:2px 0 0; line-height:1.4;">
-        Renomme aussi le dossier sur le disque et met à jour toutes les flèches qui pointaient vers cet élément.
+      <label id="rename-key-label" data-i18n="technicalIdLabel">Technical ID (disk folder)</label>
+      <input type="text" id="rename-key-input" data-i18n-placeholder="technicalIdPlaceholder" placeholder="E.g.: garden">
+      <p style="font-size:10.5px; color:var(--text-muted); margin:2px 0 0; line-height:1.4;" data-i18n="renameHint">
+        Also renames the disk folder and updates every arrow that pointed to this item.
       </p>
     </div>
 
     <div style="display:flex; gap:8px; margin-top:8px;">
-      <button class="btn-primary" style="flex:1;" id="rename-btn-submit" onclick="submitRename()">Renommer</button>
-      <button style="flex:1;" onclick="closeRenameModal()">Fermer</button>
+      <button class="btn-primary" style="flex:1;" id="rename-btn-submit" onclick="submitRename()" data-i18n="renameSubmitBtn">Rename</button>
+      <button style="flex:1;" onclick="closeRenameModal()" data-i18n="closeBtn">Close</button>
     </div>
   </div>
 
-  <!-- MODAL D'IMPORT DE PHOTOS -->
+  <!-- PHOTO IMPORT MODAL -->
   <div id="import-modal" class="modal accent-space">
-    <h4>📥 Importer des photos</h4>
+    <h4 data-i18n="importModalTitle">📥 Import photos</h4>
 
     <div class="ui-group">
-      <label>Lieu de destination</label>
-      <select id="import-select-lieu" onchange="onImportLieuChange(this.value)"></select>
+      <label data-i18n="destinationPlaceLabel">Destination place</label>
+      <select id="import-select-place" onchange="onImportPlaceChange(this.value)"></select>
     </div>
-    <div class="ui-group" id="import-new-lieu-group" style="display:none;">
-      <label>Nom du nouveau lieu</label>
-      <input type="text" id="import-new-lieu-name" placeholder="Ex : Le Moulin">
+    <div class="ui-group" id="import-new-place-group" style="display:none;">
+      <label data-i18n="newPlaceNameLabel">New place name</label>
+      <input type="text" id="import-new-place-name" data-i18n-placeholder="newPlaceNamePlaceholder" placeholder="E.g.: The Mill">
     </div>
 
     <div class="ui-group">
-      <label>Photo(s) — nom attendu : POSITION_MM-AAAA.jpg</label>
+      <label data-i18n="photosFieldLabel">Photo(s) - expected name: POSITION_MM-YYYY.jpg</label>
       <div id="import-dropzone">
         <input type="file" id="import-file-input" accept="image/jpeg,image/png" multiple onchange="onImportFilesSelected(this.files)">
-        <p class="hint">
-          Le nom du fichier détermine la position et l'époque (ex : jardin_08-2026.jpg → position
-          « jardin », août 2026). Sélectionnez plusieurs fichiers pour ajouter d'un coup plusieurs
-          positions, ou plusieurs dates pour une même position. Vous pouvez aussi glisser-déposer
-          les fichiers directement ici.
+        <p class="hint" data-i18n="importHint">
+          The file name determines the position and era (e.g. garden_08-2026.jpg → position
+          "garden", August 2026). Select several files to add several positions at once, or
+          several dates for the same position. You can also drag and drop files directly here.
         </p>
       </div>
     </div>
@@ -522,14 +546,14 @@
     <div id="import-file-list"></div>
 
     <div style="display:flex; gap:8px; margin-top:4px;">
-      <button class="btn-primary" style="flex:1;" id="import-btn-submit" onclick="submitImport()">Importer</button>
-      <button style="flex:1;" onclick="closeImportModal()">Fermer</button>
+      <button class="btn-primary" style="flex:1;" id="import-btn-submit" onclick="submitImport()" data-i18n="importSubmitBtn">Import</button>
+      <button style="flex:1;" onclick="closeImportModal()" data-i18n="closeBtn">Close</button>
     </div>
   </div>
 
   <a-scene webxr="optionalFeatures: hit-test, local-floor">
     <a-assets>
-      <img id="fleche-img" src="data/assets/fleche.png">
+      <img id="arrow-img" src="data/assets/arrow.png">
       <img id="hotspot-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><circle cx='32' cy='32' r='27' fill='%23E8A24B' stroke='%23ffffff' stroke-width='3'/><text x='32' y='43' font-size='32' font-family='Georgia,serif' font-weight='bold' text-anchor='middle' fill='%23ffffff'>i</text></svg>">
     </a-assets>
 
@@ -558,30 +582,257 @@
 
   <script>
     // =========================================================================
-    // PARAMÈTRES
+    // SETTINGS
     // =========================================================================
     const ARROW_SPAWN_DISTANCE = 6.0;
     const HOTSPOT_SPAWN_DISTANCE = 4.0;
     const SPAWN_HEIGHT = -1.0;
     const FADE_MS = 320;
-    // Doit rester cohérent avec FILENAME_RE côté server.py / generate_config.py
+    // Must stay consistent with FILENAME_RE on the server.py / generate_config.py side
     const UPLOAD_FILENAME_RE = /^(.+)_(\d{2})-(\d{4})\.(jpe?g|png)$/i;
 
+    // =========================================================================
+    // i18n (FR / EN) - defaults to English
+    // =========================================================================
+    const I18N = {
+      en: {
+        loading: "LOADING…",
+        editorModeLabel: "🛠️ Editor mode",
+        placeLabel: "📍 Place",
+        positionLabel: "🎯 Position",
+        dateLabel: "📅 Era",
+        editingTitle: "EDITING",
+        poseToolsLabel: "Placement tools",
+        addArrowBtn: "➕ Navigation arrow",
+        addHotspotBtn: "ℹ️ Info point",
+        instructionsText: "1. Aim at the desired spot on the ground.<br>2. Choose a tool above.<br>3. Click on a placed item to adjust, link, or delete it.",
+        renameLabel: "Rename",
+        renamePlaceBtn: "✏️ Rename this place",
+        renamePositionBtn: "✏️ Rename this position",
+        contentMgmtLabel: "Content management",
+        importBtn: "📥 Import photos…",
+        rescanBtn: "🔄 Rescan assets/",
+        deletePositionBtn: "🗑️ Delete this position",
+        deletePlaceBtn: "🗑️ Delete this entire place",
+        saveBtn: "💾 Save to server",
+        compassHereLabel: "Here:",
+        linkModalTitle: "🔗 Arrow configuration",
+        targetPlaceLabel: "Target place",
+        targetPositionLabel: "Target position",
+        adjustPositionLabel: "Adjust position",
+        rotateLeftBtn: "⟲ Rotate L.",
+        forwardBtn: "⬆️ Forward",
+        rotateRightBtn: "⟳ Rotate R.",
+        leftBtn: "⬅️ Left",
+        backwardBtn: "⬇️ Backward",
+        rightBtn: "➡️ Right",
+        upBtn: "🔼 Up",
+        downBtn: "🔽 Down",
+        growBtn: "🔍 + Grow",
+        shrinkBtn: "🔎 − Shrink",
+        confirmBtn: "Confirm",
+        deleteBtn: "Delete",
+        closeBtn: "Close",
+        hotspotModalTitle: "ℹ️ Info point",
+        titleLabel: "Title",
+        titlePlaceholder: "E.g.: The old fountain",
+        textLabel: "Text",
+        textPlaceholder: "Details, anecdote, source…",
+        imageLabel: "Image (URL or path, optional)",
+        renamePlaceModalTitle: "✏️ Rename this place",
+        renamePositionModalTitle: "✏️ Rename this position",
+        displayLabelLabel: "Display name (label)",
+        displayLabelPlaceholder: "E.g.: The Garden",
+        technicalIdLabel: "Technical ID (disk folder)",
+        technicalIdPositionLabel: "Position name (disk folder)",
+        technicalIdPlaceholder: "E.g.: garden",
+        renameHint: "Also renames the disk folder and updates every arrow that pointed to this item.",
+        renameSubmitBtn: "Rename",
+        renamingLabel: "Renaming…",
+        importModalTitle: "📥 Import photos",
+        destinationPlaceLabel: "Destination place",
+        newPlaceOption: "➕ New place…",
+        newPlaceNameLabel: "New place name",
+        newPlaceNamePlaceholder: "E.g.: The Mill",
+        photosFieldLabel: "Photo(s) - expected name: POSITION_MM-YYYY.jpg",
+        importHint: "The file name determines the position and era (e.g. garden_08-2026.jpg → position \u00ab garden \u00bb, August 2026). Select several files to add several positions at once, or several dates for the same position. You can also drag and drop files directly here.",
+        importSubmitBtn: "Import",
+        importInProgress: "Import in progress…",
+        pendingStatus: "Pending",
+        errorStatus: "⚠️ ",
+        successStatus: "✅ Imported",
+        conflictStatus: "⚠️ Already exists - click to overwrite",
+        duplicateStatus: "⚠️ Duplicate detected (%s) - click to import anyway",
+        uploadingStatus: "⏳ Uploading…",
+        emptyConfigError: "config.json is empty - run generate_config.py or import a photo from editor mode.",
+        loadConfigError: "Error loading config.json: ",
+        initError: "Init error:",
+        noPhotoError: "No photo for %s / %s.",
+        alertNoTitle: "Please enter a title for this info point.",
+        alertNoName: "Please enter a name.",
+        alertNoNewPlaceName: "Please enter a name for the new place.",
+        alertNoValidFiles: "No valid file to import (check the file names).",
+        alertRescanDone: "✅ Rescan complete.",
+        alertRenameError: "Error: ",
+        alertRescanError: "Error: ",
+        alertNetworkError: "Network error: ",
+        alertDeleteError: "Error: ",
+        alertSaveSuccess: "✅ Save successful (backup created in /backups).",
+        alertPlaceAlsoRemoved: "The last position was deleted: the place was removed too.",
+        deletePositionConfirm: "Permanently delete the position \u00ab %s \u00bb (%s)?\nAll associated photos will be erased from disk.%s",
+        deletePositionExtraWarning: "\n\nThis is the last position in this place: the entire place will therefore be deleted.",
+        deletePlaceConfirm: "Permanently delete the place \u00ab %s \u00bb and ALL its positions/photos?\nThis action cannot be undone.",
+        noMorePlacesError: "No place configured anymore - import a photo to start over.",
+        unsavedChangesConfirm: "You have unsaved changes. Leave without saving?",
+        vrHelpText: "(Controller: A/B to change era)",
+        defaultInfoTitle: "Information",
+      },
+      fr: {
+        loading: "CHARGEMENT…",
+        editorModeLabel: "🛠️ Mode éditeur",
+        placeLabel: "📍 Lieu",
+        positionLabel: "🎯 Position",
+        dateLabel: "📅 Époque",
+        editingTitle: "ÉDITION",
+        poseToolsLabel: "Outils de pose",
+        addArrowBtn: "➕ Flèche de navigation",
+        addHotspotBtn: "ℹ️ Point d'information",
+        instructionsText: "1. Visez l'endroit voulu au sol.<br>2. Choisissez un outil ci-dessus.<br>3. Cliquez sur un élément posé pour l'ajuster, le relier ou le supprimer.",
+        renameLabel: "Renommer",
+        renamePlaceBtn: "✏️ Renommer ce lieu",
+        renamePositionBtn: "✏️ Renommer cette position",
+        contentMgmtLabel: "Gestion du contenu",
+        importBtn: "📥 Importer des photos…",
+        rescanBtn: "🔄 Rescanner assets/",
+        deletePositionBtn: "🗑️ Supprimer cette position",
+        deletePlaceBtn: "🗑️ Supprimer ce lieu entier",
+        saveBtn: "💾 Sauvegarder sur le serveur",
+        compassHereLabel: "Ici :",
+        linkModalTitle: "🔗 Configuration de la flèche",
+        targetPlaceLabel: "Lieu cible",
+        targetPositionLabel: "Position cible",
+        adjustPositionLabel: "Ajuster la position",
+        rotateLeftBtn: "⟲ Pivoter G.",
+        forwardBtn: "⬆️ Avancer",
+        rotateRightBtn: "⟳ Pivoter D.",
+        leftBtn: "⬅️ Gauche",
+        backwardBtn: "⬇️ Reculer",
+        rightBtn: "➡️ Droite",
+        upBtn: "🔼 Monter",
+        downBtn: "🔽 Descendre",
+        growBtn: "🔍 + Grossir",
+        shrinkBtn: "🔎 − Maigrir",
+        confirmBtn: "Valider",
+        deleteBtn: "Supprimer",
+        closeBtn: "Fermer",
+        hotspotModalTitle: "ℹ️ Point d'information",
+        titleLabel: "Titre",
+        titlePlaceholder: "Ex : L'ancienne fontaine",
+        textLabel: "Texte",
+        textPlaceholder: "Détails, anecdote, source…",
+        imageLabel: "Image (URL ou chemin, optionnel)",
+        renamePlaceModalTitle: "✏️ Renommer ce lieu",
+        renamePositionModalTitle: "✏️ Renommer cette position",
+        displayLabelLabel: "Nom affiché (libellé)",
+        displayLabelPlaceholder: "Ex : Le Jardin",
+        technicalIdLabel: "Identifiant technique (dossier disque)",
+        technicalIdPositionLabel: "Nom de la position (dossier disque)",
+        technicalIdPlaceholder: "Ex : jardin",
+        renameHint: "Renomme aussi le dossier sur le disque et met à jour toutes les flèches qui pointaient vers cet élément.",
+        renameSubmitBtn: "Renommer",
+        renamingLabel: "Renommage…",
+        importModalTitle: "📥 Importer des photos",
+        destinationPlaceLabel: "Lieu de destination",
+        newPlaceOption: "➕ Nouveau lieu…",
+        newPlaceNameLabel: "Nom du nouveau lieu",
+        newPlaceNamePlaceholder: "Ex : Le Moulin",
+        photosFieldLabel: "Photo(s) — nom attendu : POSITION_MM-AAAA.jpg",
+        importHint: "Le nom du fichier détermine la position et l'époque (ex : jardin_08-2026.jpg → position \u00ab jardin \u00bb, août 2026). Sélectionnez plusieurs fichiers pour ajouter d'un coup plusieurs positions, ou plusieurs dates pour une même position. Vous pouvez aussi glisser-déposer les fichiers directement ici.",
+        importSubmitBtn: "Importer",
+        importInProgress: "Import en cours…",
+        pendingStatus: "En attente",
+        errorStatus: "⚠️ ",
+        successStatus: "✅ Importée",
+        conflictStatus: "⚠️ Existe déjà — cliquer pour écraser",
+        duplicateStatus: "⚠️ Doublon détecté (%s) — cliquer pour importer quand même",
+        uploadingStatus: "⏳ Envoi…",
+        emptyConfigError: "config.json est vide — lancez generate_config.py ou importez une photo depuis le mode éditeur.",
+        loadConfigError: "Erreur de chargement de config.json : ",
+        initError: "Erreur init :",
+        noPhotoError: "Aucune photo pour %s / %s.",
+        alertNoTitle: "Merci de renseigner un titre pour ce point d'information.",
+        alertNoName: "Merci de renseigner un nom.",
+        alertNoNewPlaceName: "Merci de saisir un nom pour le nouveau lieu.",
+        alertNoValidFiles: "Aucun fichier valide à importer (vérifiez le nom des fichiers).",
+        alertRescanDone: "✅ Rescan terminé.",
+        alertRenameError: "Erreur : ",
+        alertRescanError: "Erreur : ",
+        alertNetworkError: "Erreur réseau : ",
+        alertDeleteError: "Erreur : ",
+        alertSaveSuccess: "✅ Sauvegarde réussie (backup créé dans /backups).",
+        alertPlaceAlsoRemoved: "La dernière position a été supprimée : le lieu a été supprimé également.",
+        deletePositionConfirm: "Supprimer définitivement la position \u00ab %s \u00bb (%s) ?\nToutes les photos associées seront effacées du disque.%s",
+        deletePositionExtraWarning: "\n\nC'est la dernière position de ce lieu : le lieu entier sera donc supprimé.",
+        deletePlaceConfirm: "Supprimer définitivement le lieu \u00ab %s \u00bb et TOUTES ses positions/photos ?\nCette action est irréversible.",
+        noMorePlacesError: "Plus aucun lieu configuré — importez une photo pour recommencer.",
+        unsavedChangesConfirm: "Vous avez des modifications non sauvegardées. Quitter sans sauvegarder ?",
+        vrHelpText: "(Manette : A/B pour changer d'époque)",
+        defaultInfoTitle: "Information",
+      },
+    };
+
+    // Defaults to English; remembers the user's choice for this browser only.
+    let currentLang = localStorage.getItem('pearview-lang') || 'en';
+
+    function t(key) {
+      return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key;
+    }
+
+    function fmt(str, ...args) {
+      let i = 0;
+      return str.replace(/%s/g, () => (args[i++] ?? ''));
+    }
+
+    function applyTranslations() {
+      document.documentElement.lang = currentLang;
+      document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+      document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+      document.getElementById('lang-toggle').textContent = currentLang === 'en' ? 'EN' : 'FR';
+
+      // Re-render pieces that build their text dynamically in JS.
+      if (typeof APP_DATA === 'object' && Object.keys(APP_DATA || {}).length) {
+        if (document.getElementById('rename-modal').style.display !== 'none') {
+          document.getElementById('rename-modal-title').textContent =
+            renameTarget === 'position' ? t('renamePositionModalTitle') : t('renamePlaceModalTitle');
+          document.getElementById('rename-key-label').textContent =
+            renameTarget === 'position' ? t('technicalIdPositionLabel') : t('technicalIdLabel');
+        }
+        if (typeof renderImportFileList === 'function') renderImportFileList();
+      }
+    }
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'en' ? 'fr' : 'en';
+      localStorage.setItem('pearview-lang', currentLang);
+      applyTranslations();
+    }
+
     let APP_DATA = {};
-    let currentLieuKey = "";
+    let currentPlaceKey = "";
     let currentPosKey = "";
 
     let isEditorMode = false;
     let isHasUnsavedChanges = false;
-    let pendingItemType = null;      // 'arrow' | 'hotspot' — en attente de configuration
+    let pendingItemType = null;      // 'arrow' | 'hotspot' - awaiting configuration
     let pendingItemData = null;
     let selectedItem = null;         // { type: 'arrow'|'hotspot', index: n }
 
     let importSelectedFiles = [];    // [{ file, parsed, status, overwrite, allowDuplicate, message, thumbUrl }]
-    let renameTarget = null;         // 'lieu' | 'position'
+    let renameTarget = null;         // 'place' | 'position'
 
     // =========================================================================
-    // UTILITAIRES
+    // UTILITIES
     // =========================================================================
     function extractDate(filePath) {
       if (!filePath) return "";
@@ -609,7 +860,7 @@
     }
 
     // ==========================================
-    // ZOOM AVEC SENSIBILITÉ SOURIS ADAPTATIVE
+    // ZOOM WITH ADAPTIVE MOUSE SENSITIVITY
     // ==========================================
     AFRAME.registerComponent('zoom-controls', {
       init: function () {
@@ -627,7 +878,7 @@
     });
 
     // ==========================================
-    // BOUSSOLE — suit le cap (yaw) de la caméra
+    // COMPASS - follows the camera's heading (yaw)
     // ==========================================
     AFRAME.registerComponent('compass-tracker', {
       tick: function () {
@@ -640,44 +891,53 @@
     });
 
     // ==========================================
-    // INITIALISATION
+    // INITIALIZATION
     // ==========================================
     async function initApp() {
+      applyTranslations();
       showLoading(true);
       try {
         const response = await fetch('data/config.json');
-        if (!response.ok) throw new Error(`Statut HTTP ${response.status}`);
+        if (!response.ok) throw new Error(`HTTP status ${response.status}`);
         APP_DATA = await response.json();
 
-        const lieuxKeys = Object.keys(APP_DATA);
-        if (lieuxKeys.length === 0) {
-          document.getElementById('error-msg').innerText = "config.json est vide — lancez generate_config.py ou importez une photo depuis le mode éditeur.";
-          showLoading(false);
+        const placeKeys = Object.keys(APP_DATA);
+        if (placeKeys.length === 0) {
+          // On affiche le message d'erreur
+          document.getElementById('error-msg').innerText = t('emptyConfigError');
+          
+          // ✅ CORRECTION : On force le passage en mode éditeur pour afficher les boutons d'importation
+          document.getElementById('toggle-editor').checked = true;
+          toggleEditorMode(true);
           return;
         }
 
         normalizeAppData();
 
         document.getElementById('main-panel').style.display = 'flex';
-        populateLieuDropdown();
-        selectLieu(lieuxKeys[0]);
+        populatePlaceDropdown();
+        selectPlace(placeKeys[0]);
 
       } catch (error) {
-        console.error("Erreur init :", error);
-        document.getElementById('error-msg').innerText = "Erreur de chargement de config.json : " + error.message;
+        console.error(t('initError'), error);
+        document.getElementById('error-msg').innerText = t('loadConfigError') + error.message;
+        
+        // ✅ En cas d'erreur de chargement, on active aussi le mode éditeur par sécurité
+        document.getElementById('toggle-editor').checked = true;
+        toggleEditorMode(true);
       } finally {
         showLoading(false);
       }
     }
 
-    // S'assure que chaque position a bien ses champs par défaut. Appelé après
-    // le chargement initial et après chaque import/suppression/rescan/renommage,
-    // puisque APP_DATA est alors remplacé par la config renvoyée par le serveur.
+    // Ensures each position has its default fields set. Called after the
+    // initial load and after each import/deletion/rescan/rename, since
+    // APP_DATA is then replaced with the config returned by the server.
     function normalizeAppData() {
-      Object.keys(APP_DATA).forEach(lieu => {
-        if (!APP_DATA[lieu].positions) return;
-        Object.keys(APP_DATA[lieu].positions).forEach(pos => {
-          const posData = APP_DATA[lieu].positions[pos];
+      Object.keys(APP_DATA).forEach(place => {
+        if (!APP_DATA[place].positions) return;
+        Object.keys(APP_DATA[place].positions).forEach(pos => {
+          const posData = APP_DATA[place].positions[pos];
           if (posData.photos && posData.photos.length > 0) {
             if (posData.currentDateIdx === undefined || posData.currentDateIdx >= posData.photos.length) {
               posData.currentDateIdx = posData.photos.length - 1;
@@ -694,15 +954,15 @@
     // ==========================================
     // NAVIGATION
     // ==========================================
-    function selectLieu(lieuKey) {
-      if (!APP_DATA[lieuKey]) return;
-      currentLieuKey = lieuKey;
-      const lieuData = APP_DATA[lieuKey];
-      currentPosKey = lieuData.defaultPosition || Object.keys(lieuData.positions)[0];
+    function selectPlace(placeKey) {
+      if (!APP_DATA[placeKey]) return;
+      currentPlaceKey = placeKey;
+      const placeData = APP_DATA[placeKey];
+      currentPosKey = placeData.defaultPosition || Object.keys(placeData.positions)[0];
 
-      document.getElementById('select-lieu').value = lieuKey;
-      populatePositionDropdown(lieuData);
-      loadPanorama(currentLieuKey, currentPosKey);
+      document.getElementById('select-place').value = placeKey;
+      populatePositionDropdown(placeData);
+      loadPanorama(currentPlaceKey, currentPosKey);
     }
 
     function resetCameraRotation() {
@@ -735,26 +995,26 @@
       return closestIndex;
     }
 
-    function loadPanorama(lieuKey, posKey, dateIndex = null) {
-      const isNewPosition = (lieuKey !== currentLieuKey || posKey !== currentPosKey);
+    function loadPanorama(placeKey, posKey, dateIndex = null) {
+      const isNewPosition = (placeKey !== currentPlaceKey || posKey !== currentPosKey);
 
       let currentDateStr = "";
-      if (APP_DATA[currentLieuKey] && APP_DATA[currentLieuKey].positions[currentPosKey]) {
-        const prevPos = APP_DATA[currentLieuKey].positions[currentPosKey];
+      if (APP_DATA[currentPlaceKey] && APP_DATA[currentPlaceKey].positions[currentPosKey]) {
+        const prevPos = APP_DATA[currentPlaceKey].positions[currentPosKey];
         if (prevPos.photos && prevPos.photos[prevPos.currentDateIdx]) {
           currentDateStr = extractDate(prevPos.photos[prevPos.currentDateIdx]);
         }
       }
 
-      currentLieuKey = lieuKey;
+      currentPlaceKey = placeKey;
       currentPosKey = posKey;
 
-      const lieuObj = APP_DATA[lieuKey];
-      if (!lieuObj || !lieuObj.positions[posKey]) return;
+      const placeObj = APP_DATA[placeKey];
+      if (!placeObj || !placeObj.positions[posKey]) return;
 
-      const posData = lieuObj.positions[posKey];
+      const posData = placeObj.positions[posKey];
       if (!posData.photos || posData.photos.length === 0) {
-        document.getElementById('error-msg').innerText = `Aucune photo pour ${lieuKey} / ${posKey}.`;
+        document.getElementById('error-msg').innerText = fmt(t('noPhotoError'), placeKey, posKey);
         return;
       }
       document.getElementById('error-msg').innerText = '';
@@ -795,16 +1055,16 @@
 
       document.getElementById('select-position').value = posKey;
       populateDateDropdown(posData);
-      document.getElementById('compass-here').innerText = `${lieuObj.label || lieuKey} · ${posKey}`;
+      document.getElementById('compass-here').innerText = `${placeObj.label || placeKey} · ${posKey}`;
 
       const vrText = document.querySelector('#vr-info-display');
       if (vrText) {
-        vrText.setAttribute('value', `${lieuObj.label || lieuKey} - ${posKey} | ${newDateStr}\n(Manette : A/B pour changer d'époque)`);
+        vrText.setAttribute('value', `${placeObj.label || placeKey} - ${posKey} | ${newDateStr}\n${t('vrHelpText')}`);
       }
     }
 
     // ==========================================
-    // RENDU DES FLÈCHES DE NAVIGATION
+    // NAVIGATION ARROWS RENDERING
     // ==========================================
     function renderArrows(arrowsData) {
       const container = document.querySelector('#navigation-nodes');
@@ -813,7 +1073,7 @@
       arrowsData.forEach((arrow, idx) => {
         const el = document.createElement('a-image');
         el.setAttribute('class', 'raycastable');
-        el.setAttribute('src', '#fleche-img');
+        el.setAttribute('src', '#arrow-img');
         el.setAttribute('position', arrow.pos);
         el.setAttribute('rotation', arrow.rot || "-90 0 0");
         el.setAttribute('scale', arrow.scale || "1.5 1.5 1.5");
@@ -825,11 +1085,11 @@
             evt.stopPropagation();
             openArrowModal(idx);
           } else {
-            if (arrow.targetLieu && arrow.targetLieu !== currentLieuKey) {
-              selectLieu(arrow.targetLieu);
-              loadPanorama(arrow.targetLieu, arrow.targetPos);
+            if (arrow.targetPlace && arrow.targetPlace !== currentPlaceKey) {
+              selectPlace(arrow.targetPlace);
+              loadPanorama(arrow.targetPlace, arrow.targetPos);
             } else {
-              loadPanorama(currentLieuKey, arrow.targetPos);
+              loadPanorama(currentPlaceKey, arrow.targetPos);
             }
           }
         });
@@ -844,7 +1104,7 @@
     }
 
     // ==========================================
-    // RENDU DES POINTS D'INFORMATION (HOTSPOTS)
+    // INFO POINTS (HOTSPOTS) RENDERING
     // ==========================================
     function renderHotspots(hotspotsData) {
       const container = document.querySelector('#hotspot-nodes');
@@ -873,14 +1133,14 @@
     }
 
     function showHotspotInfo(hs) {
-      document.getElementById('hotspot-info-title').innerText = hs.title || 'Information';
+      document.getElementById('hotspot-info-title').innerText = hs.title || t('defaultInfoTitle');
       document.getElementById('hotspot-info-text').innerText = hs.text || '';
       const img = document.getElementById('hotspot-info-img');
       if (hs.image) { img.src = hs.image; img.style.display = 'block'; } else { img.style.display = 'none'; }
       document.getElementById('hotspot-info').style.display = 'block';
 
-      // Version VR (visible uniquement en immersion casque)
-      document.getElementById('vr-hotspot-title').setAttribute('value', hs.title || 'Information');
+      // VR version (visible only in headset immersion)
+      document.getElementById('vr-hotspot-title').setAttribute('value', hs.title || t('defaultInfoTitle'));
       document.getElementById('vr-hotspot-text').setAttribute('value', hs.text || '');
       const vrDisplay = document.getElementById('vr-hotspot-display');
       if (document.querySelector('a-scene').is('vr-mode')) vrDisplay.setAttribute('visible', true);
@@ -893,11 +1153,11 @@
     }
 
     // ==========================================
-    // MODE ÉDITEUR & POSE AU VISEUR
+    // EDITOR MODE & VIEWFINDER PLACEMENT
     // ==========================================
     function toggleEditorMode(enabled) {
       if (!enabled && isHasUnsavedChanges) {
-        if (!confirm("Vous avez des modifications non sauvegardées. Quitter sans sauvegarder ?")) {
+        if (!confirm(t('unsavedChangesConfirm'))) {
           document.getElementById('toggle-editor').checked = true;
           return;
         }
@@ -936,10 +1196,10 @@
     }
 
     // ==========================================
-    // AJUSTEMENT PAS-À-PAS (FLÈCHES ET HOTSPOTS)
+    // STEP-BY-STEP ADJUSTMENT (ARROWS AND HOTSPOTS)
     // ==========================================
     function getSelectedArray(type) {
-      const posData = APP_DATA[currentLieuKey].positions[currentPosKey];
+      const posData = APP_DATA[currentPlaceKey].positions[currentPosKey];
       return type === 'arrow' ? posData.arrows : posData.hotspots;
     }
 
@@ -971,12 +1231,12 @@
       item.rot = `${rotX} ${rotY.toFixed(1)} ${rotZ}`;
 
       isHasUnsavedChanges = true;
-      renderArrows(APP_DATA[currentLieuKey].positions[currentPosKey].arrows);
-      renderHotspots(APP_DATA[currentLieuKey].positions[currentPosKey].hotspots);
+      renderArrows(APP_DATA[currentPlaceKey].positions[currentPosKey].arrows);
+      renderHotspots(APP_DATA[currentPlaceKey].positions[currentPosKey].hotspots);
     }
 
     // ==========================================
-    // MODAL FLÈCHE
+    // ARROW MODAL
     // ==========================================
 
     function hideModals() {
@@ -993,42 +1253,42 @@
       const adjustSection = document.getElementById('arrow-adjustment-section');
       modal.style.display = 'flex';
 
-      populateModalLieux();
+      populateModalPlaces();
 
       if (arrowIdx >= 0) {
         selectedItem = { type: 'arrow', index: arrowIdx };
         deleteBtn.style.display = 'block';
         adjustSection.style.display = 'block';
-        const arrow = APP_DATA[currentLieuKey].positions[currentPosKey].arrows[arrowIdx];
-        document.getElementById('modal-select-lieu').value = arrow.targetLieu || currentLieuKey;
+        const arrow = APP_DATA[currentPlaceKey].positions[currentPosKey].arrows[arrowIdx];
+        document.getElementById('modal-select-place').value = arrow.targetPlace || currentPlaceKey;
         updateModalPositions();
         document.getElementById('modal-select-position').value = arrow.targetPos;
       } else {
         selectedItem = null;
         deleteBtn.style.display = 'none';
         adjustSection.style.display = 'none';
-        document.getElementById('modal-select-lieu').value = currentLieuKey;
+        document.getElementById('modal-select-place').value = currentPlaceKey;
         updateModalPositions();
       }
     }
 
-    function populateModalLieux() {
-      const select = document.getElementById('modal-select-lieu');
+    function populateModalPlaces() {
+      const select = document.getElementById('modal-select-place');
       select.innerHTML = '';
-      Object.keys(APP_DATA).forEach(lieuKey => {
+      Object.keys(APP_DATA).forEach(placeKey => {
         const opt = document.createElement('option');
-        opt.value = lieuKey;
-        opt.innerText = APP_DATA[lieuKey].label || lieuKey;
+        opt.value = placeKey;
+        opt.innerText = APP_DATA[placeKey].label || placeKey;
         select.appendChild(opt);
       });
     }
 
     function updateModalPositions() {
-      const targetLieu = document.getElementById('modal-select-lieu').value;
+      const targetPlace = document.getElementById('modal-select-place').value;
       const select = document.getElementById('modal-select-position');
       select.innerHTML = '';
-      if (APP_DATA[targetLieu] && APP_DATA[targetLieu].positions) {
-        Object.keys(APP_DATA[targetLieu].positions).forEach(posKey => {
+      if (APP_DATA[targetPlace] && APP_DATA[targetPlace].positions) {
+        Object.keys(APP_DATA[targetPlace].positions).forEach(posKey => {
           const opt = document.createElement('option');
           opt.value = posKey;
           opt.innerText = posKey;
@@ -1038,15 +1298,15 @@
     }
 
     function confirmArrowLink() {
-      const targetLieu = document.getElementById('modal-select-lieu').value;
+      const targetPlace = document.getElementById('modal-select-place').value;
       const targetPos = document.getElementById('modal-select-position').value;
-      const arrows = APP_DATA[currentLieuKey].positions[currentPosKey].arrows;
+      const arrows = APP_DATA[currentPlaceKey].positions[currentPosKey].arrows;
       if (selectedItem && selectedItem.type === 'arrow') {
-        arrows[selectedItem.index].targetLieu = targetLieu;
+        arrows[selectedItem.index].targetPlace = targetPlace;
         arrows[selectedItem.index].targetPos = targetPos;
       } else if (pendingItemData) {
         arrows.push({
-          targetLieu, targetPos,
+          targetPlace, targetPos,
           pos: pendingItemData.pos, rot: pendingItemData.rot, scale: pendingItemData.scale
         });
       }
@@ -1057,7 +1317,7 @@
     }
 
     // ==========================================
-    // MODAL HOTSPOT
+    // HOTSPOT MODAL
     // ==========================================
     function openHotspotModal(hotspotIdx) {
       hideModals();
@@ -1068,7 +1328,7 @@
 
       if (hotspotIdx >= 0) {
         selectedItem = { type: 'hotspot', index: hotspotIdx };
-        const hs = APP_DATA[currentLieuKey].positions[currentPosKey].hotspots[hotspotIdx];
+        const hs = APP_DATA[currentPlaceKey].positions[currentPosKey].hotspots[hotspotIdx];
         document.getElementById('hotspot-title').value = hs.title || '';
         document.getElementById('hotspot-text').value = hs.text || '';
         document.getElementById('hotspot-image').value = hs.image || '';
@@ -1089,9 +1349,9 @@
       const text = document.getElementById('hotspot-text').value.trim();
       const image = document.getElementById('hotspot-image').value.trim();
 
-      if (!title) { alert("Merci de renseigner un titre pour ce point d'information."); return; }
+      if (!title) { alert(t('alertNoTitle')); return; }
 
-      const hotspots = APP_DATA[currentLieuKey].positions[currentPosKey].hotspots;
+      const hotspots = APP_DATA[currentPlaceKey].positions[currentPosKey].hotspots;
 
       if (selectedItem && selectedItem.type === 'hotspot') {
         Object.assign(hotspots[selectedItem.index], { title, text, image });
@@ -1105,11 +1365,11 @@
     }
 
     // ==========================================
-    // SUPPRESSION / FERMETURE COMMUNES (flèches / hotspots posés)
+    // SHARED DELETE / CLOSE (placed arrows / hotspots)
     // ==========================================
     function deleteSelectedItem() {
       if (!selectedItem) { closeModal(); return; }
-      const posData = APP_DATA[currentLieuKey].positions[currentPosKey];
+      const posData = APP_DATA[currentPlaceKey].positions[currentPosKey];
       const arr = selectedItem.type === 'arrow' ? posData.arrows : posData.hotspots;
       arr.splice(selectedItem.index, 1);
       isHasUnsavedChanges = true;
@@ -1127,28 +1387,28 @@
     }
 
     // =========================================================================
-    // RENOMMAGE D'UN LIEU / D'UNE POSITION
+    // RENAMING A PLACE / A POSITION
     // =========================================================================
-    function openRenameLieuModal() {
-      if (!currentLieuKey) return;
+    function openRenamePlaceModal() {
+      if (!currentPlaceKey) return;
       hideModals();
-      renameTarget = 'lieu';
-      document.getElementById('rename-modal-title').innerText = '✏️ Renommer ce lieu';
+      renameTarget = 'place';
+      document.getElementById('rename-modal-title').textContent = t('renamePlaceModalTitle');
       document.getElementById('rename-label-group').style.display = 'flex';
-      document.getElementById('rename-key-label').innerText = 'Identifiant technique (dossier disque)';
-      document.getElementById('rename-label-input').value = APP_DATA[currentLieuKey].label || currentLieuKey;
-      document.getElementById('rename-key-input').value = currentLieuKey;
+      document.getElementById('rename-key-label').textContent = t('technicalIdLabel');
+      document.getElementById('rename-label-input').value = APP_DATA[currentPlaceKey].label || currentPlaceKey;
+      document.getElementById('rename-key-input').value = currentPlaceKey;
       document.getElementById('rename-modal').style.display = 'flex';
     }
 
     function openRenamePositionModal() {
-      if (!currentLieuKey || !currentPosKey) return;
+      if (!currentPlaceKey || !currentPosKey) return;
       hideModals();
       renameTarget = 'position';
-      document.getElementById('rename-modal-title').innerText = '✏️ Renommer cette position';
-      // Les positions n'ont pas de libellé distinct de leur identifiant.
+      document.getElementById('rename-modal-title').textContent = t('renamePositionModalTitle');
+      // Positions have no label distinct from their ID.
       document.getElementById('rename-label-group').style.display = 'none';
-      document.getElementById('rename-key-label').innerText = 'Nom de la position (dossier disque)';
+      document.getElementById('rename-key-label').textContent = t('technicalIdPositionLabel');
       document.getElementById('rename-key-input').value = currentPosKey;
       document.getElementById('rename-modal').style.display = 'flex';
     }
@@ -1160,78 +1420,78 @@
 
     async function submitRename() {
       const newKey = document.getElementById('rename-key-input').value.trim();
-      if (!newKey) { alert("Merci de renseigner un nom."); return; }
+      if (!newKey) { alert(t('alertNoName')); return; }
 
       const btn = document.getElementById('rename-btn-submit');
       btn.disabled = true;
-      btn.innerText = 'Renommage…';
+      btn.innerText = t('renamingLabel');
 
       try {
-        if (renameTarget === 'lieu') {
+        if (renameTarget === 'place') {
           const newLabel = document.getElementById('rename-label-input').value.trim();
-          const resp = await fetch('/api/rename-lieu', {
+          const resp = await fetch('/api/rename-place', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lieu: currentLieuKey, newKey, newLabel }),
+            body: JSON.stringify({ place: currentPlaceKey, newKey, newLabel }),
           });
           const data = await resp.json();
-          if (data.status !== 'success') { alert('Erreur : ' + (data.message || 'renommage impossible')); return; }
+          if (data.status !== 'success') { alert(t('alertRenameError') + (data.message || '')); return; }
           APP_DATA = data.config;
           normalizeAppData();
           closeRenameModal();
-          populateLieuDropdown();
-          selectLieu(data.lieu);
+          populatePlaceDropdown();
+          selectPlace(data.place);
         } else if (renameTarget === 'position') {
           const resp = await fetch('/api/rename-position', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lieu: currentLieuKey, position: currentPosKey, newKey }),
+            body: JSON.stringify({ place: currentPlaceKey, position: currentPosKey, newKey }),
           });
           const data = await resp.json();
-          if (data.status !== 'success') { alert('Erreur : ' + (data.message || 'renommage impossible')); return; }
+          if (data.status !== 'success') { alert(t('alertRenameError') + (data.message || '')); return; }
           APP_DATA = data.config;
           normalizeAppData();
           closeRenameModal();
-          populatePositionDropdown(APP_DATA[data.lieu]);
-          loadPanorama(data.lieu, data.position);
+          populatePositionDropdown(APP_DATA[data.place]);
+          loadPanorama(data.place, data.position);
         }
       } catch (err) {
-        alert('Erreur réseau : ' + err.message);
+        alert(t('alertNetworkError') + err.message);
       } finally {
         btn.disabled = false;
-        btn.innerText = 'Renommer';
+        btn.innerText = t('renameSubmitBtn');
       }
     }
 
     // =========================================================================
-    // RESCAN MANUEL (sans import) — relance generate_config sur assets/
+    // MANUAL RESCAN (no import) - re-runs generate_config on assets/
     // =========================================================================
     async function rescanAssets() {
       try {
         showLoading(true);
         const resp = await fetch('/api/rescan', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
         const data = await resp.json();
-        if (data.status !== 'success') { alert('Erreur : ' + (data.message || 'rescan impossible')); return; }
+        if (data.status !== 'success') { alert(t('alertRescanError') + (data.message || '')); return; }
         APP_DATA = data.config;
         normalizeAppData();
-        populateLieuDropdown();
-        if (currentLieuKey && APP_DATA[currentLieuKey]) {
-          populatePositionDropdown(APP_DATA[currentLieuKey]);
-          loadPanorama(currentLieuKey, currentPosKey);
+        populatePlaceDropdown();
+        if (currentPlaceKey && APP_DATA[currentPlaceKey]) {
+          populatePositionDropdown(APP_DATA[currentPlaceKey]);
+          loadPanorama(currentPlaceKey, currentPosKey);
         } else {
           const remaining = Object.keys(APP_DATA);
-          if (remaining.length > 0) selectLieu(remaining[0]);
+          if (remaining.length > 0) selectPlace(remaining[0]);
         }
-        alert('✅ Rescan terminé.');
+        alert(t('alertRescanDone'));
       } catch (err) {
-        alert('Erreur réseau : ' + err.message);
+        alert(t('alertNetworkError') + err.message);
       } finally {
         showLoading(false);
       }
     }
 
     // =========================================================================
-    // IMPORT DE PHOTOS (nouvelle position / nouvelle date / nouveau lieu)
+    // PHOTO IMPORT (new position / new date / new place)
     // =========================================================================
     function openImportModal() {
       hideModals();
@@ -1240,8 +1500,8 @@
       document.getElementById('import-file-list').innerHTML = '';
       const btn = document.getElementById('import-btn-submit');
       btn.disabled = false;
-      btn.innerText = 'Importer';
-      populateImportLieuDropdown();
+      btn.innerText = t('importSubmitBtn');
+      populateImportPlaceDropdown();
       document.getElementById('import-modal').style.display = 'flex';
     }
 
@@ -1249,26 +1509,26 @@
       document.getElementById('import-modal').style.display = 'none';
     }
 
-    function populateImportLieuDropdown() {
-      const select = document.getElementById('import-select-lieu');
+    function populateImportPlaceDropdown() {
+      const select = document.getElementById('import-select-place');
       select.innerHTML = '';
-      Object.keys(APP_DATA).forEach(lieuKey => {
+      Object.keys(APP_DATA).forEach(placeKey => {
         const opt = document.createElement('option');
-        opt.value = lieuKey;
-        opt.innerText = APP_DATA[lieuKey].label || lieuKey;
+        opt.value = placeKey;
+        opt.innerText = APP_DATA[placeKey].label || placeKey;
         select.appendChild(opt);
       });
       const newOpt = document.createElement('option');
       newOpt.value = '__new__';
-      newOpt.innerText = '➕ Nouveau lieu…';
+      newOpt.innerText = t('newPlaceOption');
       select.appendChild(newOpt);
 
-      select.value = (currentLieuKey && APP_DATA[currentLieuKey]) ? currentLieuKey : (Object.keys(APP_DATA)[0] || '__new__');
-      onImportLieuChange(select.value);
+      select.value = (currentPlaceKey && APP_DATA[currentPlaceKey]) ? currentPlaceKey : (Object.keys(APP_DATA)[0] || '__new__');
+      onImportPlaceChange(select.value);
     }
 
-    function onImportLieuChange(value) {
-      document.getElementById('import-new-lieu-group').style.display = (value === '__new__') ? 'flex' : 'none';
+    function onImportPlaceChange(value) {
+      document.getElementById('import-new-place-group').style.display = (value === '__new__') ? 'flex' : 'none';
     }
 
     function addFilesToImportSelection(files) {
@@ -1280,7 +1540,7 @@
             file,
             parsed,
             status: parsed ? 'pending' : 'error',
-            message: parsed ? '' : "Nom invalide — attendu POSITION_MM-AAAA.jpg",
+            message: parsed ? '' : "Invalid name - expected POSITION_MM-YYYY.jpg",
             overwrite: false,
             allowDuplicate: false,
             thumbUrl: /^image\//.test(file.type) ? URL.createObjectURL(file) : null,
@@ -1291,7 +1551,7 @@
     }
 
     function onImportFilesSelected(fileList) {
-      // Remplace la sélection (comportement natif du <input type=file multiple>).
+      // Replaces the selection (native behavior of <input type=file multiple>).
       importSelectedFiles = [];
       addFilesToImportSelection(fileList);
     }
@@ -1304,15 +1564,15 @@
         row.className = 'import-file-row' + (entry.status === 'conflict' ? ' conflict' : (entry.status === 'duplicate' ? ' duplicate' : ''));
 
         let statusColor = 'var(--text-muted)';
-        let statusText = 'En attente';
-        if (entry.status === 'error') { statusColor = 'var(--danger)'; statusText = '⚠️ ' + entry.message; }
-        if (entry.status === 'success') { statusColor = 'var(--success)'; statusText = '✅ Importée'; }
-        if (entry.status === 'conflict') { statusColor = 'var(--accent-time)'; statusText = '⚠️ Existe déjà — cliquer pour écraser'; }
-        if (entry.status === 'duplicate') { statusColor = 'var(--accent-time)'; statusText = '⚠️ Doublon détecté (' + (entry.existingPath || '') + ') — cliquer pour importer quand même'; }
-        if (entry.status === 'uploading') { statusColor = 'var(--accent-space)'; statusText = '⏳ Envoi…'; }
+        let statusText = t('pendingStatus');
+        if (entry.status === 'error') { statusColor = 'var(--danger)'; statusText = t('errorStatus') + entry.message; }
+        if (entry.status === 'success') { statusColor = 'var(--success)'; statusText = t('successStatus'); }
+        if (entry.status === 'conflict') { statusColor = 'var(--accent-time)'; statusText = t('conflictStatus'); }
+        if (entry.status === 'duplicate') { statusColor = 'var(--accent-time)'; statusText = fmt(t('duplicateStatus'), entry.existingPath || ''); }
+        if (entry.status === 'uploading') { statusColor = 'var(--accent-space)'; statusText = t('uploadingStatus'); }
 
         const infoLine = entry.parsed
-          ? `Position « ${entry.parsed.position} » — ${entry.parsed.month}/${entry.parsed.year}`
+          ? `Position \u00ab ${entry.parsed.position} \u00bb — ${entry.parsed.month}/${entry.parsed.year}`
           : entry.file.name;
 
         const thumbHtml = entry.thumbUrl ? `<img class="thumb" src="${entry.thumbUrl}">` : '';
@@ -1338,32 +1598,32 @@
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
-        reader.onerror = () => reject(reader.error || new Error('Lecture du fichier impossible'));
+        reader.onerror = () => reject(reader.error || new Error('Unable to read the file'));
         reader.readAsDataURL(file);
       });
     }
 
     async function submitImport() {
-      const lieuSelectVal = document.getElementById('import-select-lieu').value;
-      let lieu, isNewLieu;
-      if (lieuSelectVal === '__new__') {
-        lieu = document.getElementById('import-new-lieu-name').value.trim();
-        if (!lieu) { alert("Merci de saisir un nom pour le nouveau lieu."); return; }
-        isNewLieu = true;
+      const placeSelectVal = document.getElementById('import-select-place').value;
+      let place, isNewPlace;
+      if (placeSelectVal === '__new__') {
+        place = document.getElementById('import-new-place-name').value.trim();
+        if (!place) { alert(t('alertNoNewPlaceName')); return; }
+        isNewPlace = true;
       } else {
-        lieu = lieuSelectVal;
-        isNewLieu = false;
+        place = placeSelectVal;
+        isNewPlace = false;
       }
 
       const toUpload = importSelectedFiles.filter(e => e.parsed && (e.status === 'pending'));
       if (toUpload.length === 0) {
-        alert("Aucun fichier valide à importer (vérifiez le nom des fichiers).");
+        alert(t('alertNoValidFiles'));
         return;
       }
 
       const btn = document.getElementById('import-btn-submit');
       btn.disabled = true;
-      btn.innerText = 'Import en cours…';
+      btn.innerText = t('importInProgress');
 
       let lastSuccessTarget = null;
 
@@ -1376,7 +1636,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              lieu, isNewLieu, filename: entry.file.name,
+              place, isNewPlace, filename: entry.file.name,
               imageBase64: base64, overwrite: !!entry.overwrite,
               allowDuplicate: !!entry.allowDuplicate,
             }),
@@ -1393,11 +1653,11 @@
             entry.status = 'success';
             APP_DATA = data.config;
             normalizeAppData();
-            lastSuccessTarget = { lieu: data.lieu, position: data.position };
-            isNewLieu = false; // le lieu existe désormais pour les fichiers suivants
+            lastSuccessTarget = { place: data.place, position: data.position };
+            isNewPlace = false; // the place now exists for the following files
           } else {
             entry.status = 'error';
-            entry.message = data.message || 'Erreur inconnue';
+            entry.message = data.message || 'Unknown error';
           }
         } catch (err) {
           entry.status = 'error';
@@ -1407,7 +1667,7 @@
       }
 
       btn.disabled = false;
-      btn.innerText = 'Importer';
+      btn.innerText = t('importSubmitBtn');
 
       const stillPending = importSelectedFiles.some(e => e.status === 'pending' || e.status === 'conflict' || e.status === 'duplicate');
       if (!stillPending) {
@@ -1415,15 +1675,18 @@
       }
 
       if (lastSuccessTarget) {
-        populateLieuDropdown();
-        populateImportLieuDropdown();
-        selectLieu(lastSuccessTarget.lieu);
-        loadPanorama(lastSuccessTarget.lieu, lastSuccessTarget.position);
+        // ✅ Réaffiche le panneau principal s'il était caché au premier démarrage
+        document.getElementById('main-panel').style.display = 'flex';
+        
+        populatePlaceDropdown();
+        populateImportPlaceDropdown();
+        selectPlace(lastSuccessTarget.place);
+        loadPanorama(lastSuccessTarget.place, lastSuccessTarget.position);
       }
     }
 
     // ==========================================
-    // GLISSER-DÉPOSER SUR LA ZONE D'IMPORT
+    // DRAG AND DROP ON THE IMPORT ZONE
     // ==========================================
     (function setupImportDropzone() {
       const zone = document.getElementById('import-dropzone');
@@ -1457,16 +1720,14 @@
     })();
 
     // =========================================================================
-    // SUPPRESSION D'UNE POSITION / D'UN LIEU ENTIER
+    // DELETING A POSITION / AN ENTIRE PLACE
     // =========================================================================
     async function deleteCurrentPosition() {
-      if (!currentLieuKey || !currentPosKey) return;
-      const lieuLabel = (APP_DATA[currentLieuKey] && APP_DATA[currentLieuKey].label) || currentLieuKey;
-      const nbPositions = Object.keys(APP_DATA[currentLieuKey].positions).length;
-      const extraWarning = nbPositions <= 1
-        ? "\n\nC'est la dernière position de ce lieu : le lieu entier sera donc supprimé."
-        : "";
-      if (!confirm(`Supprimer définitivement la position « ${currentPosKey} » (${lieuLabel}) ?\nToutes les photos associées seront effacées du disque.${extraWarning}`)) {
+      if (!currentPlaceKey || !currentPosKey) return;
+      const placeLabel = (APP_DATA[currentPlaceKey] && APP_DATA[currentPlaceKey].label) || currentPlaceKey;
+      const nbPositions = Object.keys(APP_DATA[currentPlaceKey].positions).length;
+      const extraWarning = nbPositions <= 1 ? t('deletePositionExtraWarning') : "";
+      if (!confirm(fmt(t('deletePositionConfirm'), currentPosKey, placeLabel, extraWarning))) {
         return;
       }
 
@@ -1474,66 +1735,72 @@
         const resp = await fetch('/api/delete-position', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lieu: currentLieuKey, position: currentPosKey }),
+          body: JSON.stringify({ place: currentPlaceKey, position: currentPosKey }),
         });
         const data = await resp.json();
-        if (data.status !== 'success') { alert('Erreur : ' + (data.message || 'suppression impossible')); return; }
+        if (data.status !== 'success') { alert(t('alertDeleteError') + (data.message || '')); return; }
         APP_DATA = data.config;
         normalizeAppData();
-        if (data.lieuRemoved) alert("La dernière position a été supprimée : le lieu a été supprimé également.");
+        if (data.placeRemoved) alert(t('alertPlaceAlsoRemoved'));
         afterStructuralDelete();
       } catch (err) {
-        alert('Erreur réseau : ' + err.message);
+        alert(t('alertNetworkError') + err.message);
       }
     }
 
-    async function deleteCurrentLieu() {
-      if (!currentLieuKey) return;
-      const lieuLabel = (APP_DATA[currentLieuKey] && APP_DATA[currentLieuKey].label) || currentLieuKey;
-      if (!confirm(`Supprimer définitivement le lieu « ${lieuLabel} » et TOUTES ses positions/photos ?\nCette action est irréversible.`)) {
+    async function deleteCurrentPlace() {
+      if (!currentPlaceKey) return;
+      const placeLabel = (APP_DATA[currentPlaceKey] && APP_DATA[currentPlaceKey].label) || currentPlaceKey;
+      if (!confirm(fmt(t('deletePlaceConfirm'), placeLabel))) {
         return;
       }
 
       try {
-        const resp = await fetch('/api/delete-lieu', {
+        const resp = await fetch('/api/delete-place', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lieu: currentLieuKey }),
+          body: JSON.stringify({ place: currentPlaceKey }),
         });
         const data = await resp.json();
-        if (data.status !== 'success') { alert('Erreur : ' + (data.message || 'suppression impossible')); return; }
+        if (data.status !== 'success') { alert(t('alertDeleteError') + (data.message || '')); return; }
         APP_DATA = data.config;
         normalizeAppData();
         afterStructuralDelete();
       } catch (err) {
-        alert('Erreur réseau : ' + err.message);
+        alert(t('alertNetworkError') + err.message);
       }
     }
 
-    function afterStructuralDelete() {
+function afterStructuralDelete() {
       isHasUnsavedChanges = false;
-      const remainingLieux = Object.keys(APP_DATA);
-      if (remainingLieux.length === 0) {
+      const remainingPlaces = Object.keys(APP_DATA);
+      if (remainingPlaces.length === 0) {
+        // On cache le panneau principal (sélection de lieu/position)...
         document.getElementById('main-panel').style.display = 'none';
-        document.getElementById('editor-panel').style.display = 'none';
-        document.getElementById('error-msg').innerText = "Plus aucun lieu configuré — importez une photo pour recommencer.";
-        currentLieuKey = '';
+        
+        // ✅ CORRECTION : On GARDE le panneau d'édition affiché pour pouvoir ré-importer !
+        document.getElementById('editor-panel').style.display = 'flex';
+        document.getElementById('toggle-editor').checked = true;
+        isEditorMode = true;
+
+        document.getElementById('error-msg').innerText = t('noMorePlacesError');
+        currentPlaceKey = '';
         currentPosKey = '';
         return;
       }
-      populateLieuDropdown();
-      const nextLieu = APP_DATA[currentLieuKey] ? currentLieuKey : remainingLieux[0];
-      selectLieu(nextLieu);
+      populatePlaceDropdown();
+      const nextPlace = APP_DATA[currentPlaceKey] ? currentPlaceKey : remainingPlaces[0];
+      selectPlace(nextPlace);
     }
 
     // ==========================================
-    // SAUVEGARDE SUR LE BACKEND
+    // SAVING TO THE BACKEND
     // ==========================================
     async function saveConfiguration() {
       const dataToExport = JSON.parse(JSON.stringify(APP_DATA));
-      Object.keys(dataToExport).forEach(lieu => {
-        Object.keys(dataToExport[lieu].positions).forEach(pos => {
-          delete dataToExport[lieu].positions[pos].currentDateIdx;
+      Object.keys(dataToExport).forEach(place => {
+        Object.keys(dataToExport[place].positions).forEach(pos => {
+          delete dataToExport[place].positions[pos].currentDateIdx;
         });
       });
 
@@ -1546,12 +1813,12 @@
 
         if (response.ok) {
           isHasUnsavedChanges = false;
-          alert("✅ Sauvegarde réussie (backup créé dans /backups).");
+          alert(t('alertSaveSuccess'));
           return;
         }
-        throw new Error(`Statut HTTP ${response.status}`);
+        throw new Error(`HTTP status ${response.status}`);
       } catch (err) {
-        console.warn("Erreur d'enregistrement serveur, bascule en téléchargement local :", err);
+        console.warn("Server save error, falling back to local download:", err);
       }
 
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToExport, null, 2));
@@ -1567,22 +1834,22 @@
     // ==========================================
     // DROPDOWNS
     // ==========================================
-    function populateLieuDropdown() {
-      const select = document.getElementById('select-lieu');
+    function populatePlaceDropdown() {
+      const select = document.getElementById('select-place');
       select.innerHTML = '';
-      Object.keys(APP_DATA).forEach(lieuKey => {
+      Object.keys(APP_DATA).forEach(placeKey => {
         const opt = document.createElement('option');
-        opt.value = lieuKey;
-        opt.innerText = APP_DATA[lieuKey].label || lieuKey;
+        opt.value = placeKey;
+        opt.innerText = APP_DATA[placeKey].label || placeKey;
         select.appendChild(opt);
       });
     }
 
-    function populatePositionDropdown(lieuData) {
+    function populatePositionDropdown(placeData) {
       const select = document.getElementById('select-position');
       select.innerHTML = '';
-      if (!lieuData || !lieuData.positions) return;
-      Object.keys(lieuData.positions).forEach(posKey => {
+      if (!placeData || !placeData.positions) return;
+      Object.keys(placeData.positions).forEach(posKey => {
         const opt = document.createElement('option');
         opt.value = posKey;
         opt.innerText = posKey;
@@ -1604,17 +1871,17 @@
       select.value = posData.currentDateIdx;
     }
 
-    function onLieuChange(lieuKey) { selectLieu(lieuKey); }
-    function onPositionChange(posKey) { loadPanorama(currentLieuKey, posKey); }
-    function onDateChange(dateIdx) { loadPanorama(currentLieuKey, currentPosKey, parseInt(dateIdx, 10)); }
+    function onPlaceChange(placeKey) { selectPlace(placeKey); }
+    function onPositionChange(posKey) { loadPanorama(currentPlaceKey, posKey); }
+    function onDateChange(dateIdx) { loadPanorama(currentPlaceKey, currentPosKey, parseInt(dateIdx, 10)); }
 
     function cycleDate(direction) {
-      const posData = APP_DATA[currentLieuKey].positions[currentPosKey];
+      const posData = APP_DATA[currentPlaceKey].positions[currentPosKey];
       if (!posData || !posData.photos) return;
       let newIdx = posData.currentDateIdx + direction;
       if (newIdx >= posData.photos.length) newIdx = 0;
       if (newIdx < 0) newIdx = posData.photos.length - 1;
-      loadPanorama(currentLieuKey, currentPosKey, newIdx);
+      loadPanorama(currentPlaceKey, currentPosKey, newIdx);
     }
 
     AFRAME.registerComponent('controller-buttons', {

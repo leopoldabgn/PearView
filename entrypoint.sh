@@ -3,18 +3,18 @@ set -e
 
 cd /app
 
-# Si config.json n'existe pas dans le volume monté, on en crée un vide
+# If config.json does not exist in the mounted volume, create an empty one
 if [ ! -f /app/data/config.json ]; then
     echo "{}" > /app/data/config.json
 fi
 
-echo "[entrypoint] Scan initial de data/assets/ (generate_config.py)…"
+echo "[entrypoint] Initial scan of data/assets/ (generate_config.py)…"
 python3 generate_config.py || true
 
-echo "[entrypoint] Démarrage du cron (rescan toutes les 5 min)…"
+echo "[entrypoint] Starting cron (rescan every 5 min)…"
 cron
 
-echo "[entrypoint] Démarrage du serveur PearView sur le port ${PEARVIEW_PORT:-1500}…"
-# exec remplace le process bash par server.py : c'est lui le PID 1,
-# ce qui permet à Docker de lui transmettre proprement les signaux (Ctrl+C, docker stop…).
+echo "[entrypoint] Starting PearView server on port ${PEARVIEW_PORT:-1500}…"
+# exec replaces the bash process with server.py: it becomes PID 1,
+# allowing Docker to cleanly forward signals (Ctrl+C, docker stop…).
 exec python3 server.py

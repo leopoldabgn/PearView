@@ -34,7 +34,7 @@
 
 ### 1. Clone the repository
 ```bash
-git clone [https://github.com/leopoldabgn/PearView.git](https://github.com/leopoldabgn/PearView.git)
+git clone https://github.com/leopoldabgn/PearView.git
 cd PearView
 ```
 

@@ -256,6 +256,20 @@
     .import-file-row .fname { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .import-file-row .status { margin-top: 2px; }
     .import-file-row.conflict { cursor: pointer; border-color: var(--accent-time-dim); }
+    .import-file-row.duplicate { cursor: pointer; border-color: var(--accent-time-dim); }
+
+    /* Zone de glisser-déposer pour l'import de photos */
+    #import-dropzone {
+      border: 1.5px dashed var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      transition: border-color .15s, background .15s;
+    }
+    #import-dropzone.drag-over {
+      border-color: var(--accent-space);
+      background: rgba(51, 214, 84, 0.08);
+    }
+    #import-dropzone p.hint { font-size: 10.5px; color: var(--text-muted); margin: 6px 0 0; line-height: 1.4; }
 
     /* ==========================================================
        RESPONSIVE MOBILE
@@ -333,8 +347,17 @@
       <hr class="sep">
 
       <div class="ui-group">
+        <label>Renommer</label>
+        <button onclick="openRenameLieuModal()">✏️ Renommer ce lieu</button>
+        <button onclick="openRenamePositionModal()">✏️ Renommer cette position</button>
+      </div>
+
+      <hr class="sep">
+
+      <div class="ui-group">
         <label>Gestion du contenu</label>
         <button class="btn-primary" onclick="openImportModal()">📥 Importer des photos…</button>
+        <button onclick="rescanAssets()">🔄 Rescanner assets/</button>
         <button class="btn-danger" onclick="deleteCurrentPosition()">🗑️ Supprimer cette position</button>
         <button class="btn-danger" onclick="deleteCurrentLieu()">🗑️ Supprimer ce lieu entier</button>
       </div>
@@ -448,6 +471,28 @@
     </div>
   </div>
 
+  <!-- MODAL DE RENOMMAGE (lieu ou position) -->
+  <div id="rename-modal" class="modal accent-space">
+    <h4 id="rename-modal-title">✏️ Renommer</h4>
+
+    <div class="ui-group" id="rename-label-group">
+      <label>Nom affiché (libellé)</label>
+      <input type="text" id="rename-label-input" placeholder="Ex : Le Jardin">
+    </div>
+    <div class="ui-group">
+      <label id="rename-key-label">Identifiant technique (dossier disque)</label>
+      <input type="text" id="rename-key-input" placeholder="Ex : jardin">
+      <p style="font-size:10.5px; color:var(--text-muted); margin:2px 0 0; line-height:1.4;">
+        Renomme aussi le dossier sur le disque et met à jour toutes les flèches qui pointaient vers cet élément.
+      </p>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <button class="btn-primary" style="flex:1;" id="rename-btn-submit" onclick="submitRename()">Renommer</button>
+      <button style="flex:1;" onclick="closeRenameModal()">Fermer</button>
+    </div>
+  </div>
+
   <!-- MODAL D'IMPORT DE PHOTOS -->
   <div id="import-modal" class="modal accent-space">
     <h4>📥 Importer des photos</h4>
@@ -463,12 +508,15 @@
 
     <div class="ui-group">
       <label>Photo(s) — nom attendu : POSITION_MM-AAAA.jpg</label>
-      <input type="file" id="import-file-input" accept="image/jpeg,image/png" multiple onchange="onImportFilesSelected(this.files)">
-      <p style="font-size:10.5px; color:var(--text-muted); margin:2px 0 0; line-height:1.4;">
-        Le nom du fichier détermine la position et l'époque (ex : jardin_08-2026.jpg → position
-        « jardin », août 2026). Sélectionnez plusieurs fichiers pour ajouter d'un coup plusieurs
-        positions, ou plusieurs dates pour une même position.
-      </p>
+      <div id="import-dropzone">
+        <input type="file" id="import-file-input" accept="image/jpeg,image/png" multiple onchange="onImportFilesSelected(this.files)">
+        <p class="hint">
+          Le nom du fichier détermine la position et l'époque (ex : jardin_08-2026.jpg → position
+          « jardin », août 2026). Sélectionnez plusieurs fichiers pour ajouter d'un coup plusieurs
+          positions, ou plusieurs dates pour une même position. Vous pouvez aussi glisser-déposer
+          les fichiers directement ici.
+        </p>
+      </div>
     </div>
 
     <div id="import-file-list"></div>
@@ -529,7 +577,8 @@
     let pendingItemData = null;
     let selectedItem = null;         // { type: 'arrow'|'hotspot', index: n }
 
-    let importSelectedFiles = [];    // [{ file, parsed, status, overwrite, message }]
+    let importSelectedFiles = [];    // [{ file, parsed, status, overwrite, allowDuplicate, message, thumbUrl }]
+    let renameTarget = null;         // 'lieu' | 'position'
 
     // =========================================================================
     // UTILITAIRES
@@ -622,8 +671,8 @@
     }
 
     // S'assure que chaque position a bien ses champs par défaut. Appelé après
-    // le chargement initial et après chaque import/suppression, puisque
-    // APP_DATA est alors remplacé par la config renvoyée par le serveur.
+    // le chargement initial et après chaque import/suppression/rescan/renommage,
+    // puisque APP_DATA est alors remplacé par la config renvoyée par le serveur.
     function normalizeAppData() {
       Object.keys(APP_DATA).forEach(lieu => {
         if (!APP_DATA[lieu].positions) return;
@@ -934,6 +983,7 @@
       document.getElementById('link-modal').style.display = 'none';
       document.getElementById('hotspot-modal').style.display = 'none';
       document.getElementById('import-modal').style.display = 'none';
+      document.getElementById('rename-modal').style.display = 'none';
     }
 
     function openArrowModal(arrowIdx) {
@@ -1077,6 +1127,110 @@
     }
 
     // =========================================================================
+    // RENOMMAGE D'UN LIEU / D'UNE POSITION
+    // =========================================================================
+    function openRenameLieuModal() {
+      if (!currentLieuKey) return;
+      hideModals();
+      renameTarget = 'lieu';
+      document.getElementById('rename-modal-title').innerText = '✏️ Renommer ce lieu';
+      document.getElementById('rename-label-group').style.display = 'flex';
+      document.getElementById('rename-key-label').innerText = 'Identifiant technique (dossier disque)';
+      document.getElementById('rename-label-input').value = APP_DATA[currentLieuKey].label || currentLieuKey;
+      document.getElementById('rename-key-input').value = currentLieuKey;
+      document.getElementById('rename-modal').style.display = 'flex';
+    }
+
+    function openRenamePositionModal() {
+      if (!currentLieuKey || !currentPosKey) return;
+      hideModals();
+      renameTarget = 'position';
+      document.getElementById('rename-modal-title').innerText = '✏️ Renommer cette position';
+      // Les positions n'ont pas de libellé distinct de leur identifiant.
+      document.getElementById('rename-label-group').style.display = 'none';
+      document.getElementById('rename-key-label').innerText = 'Nom de la position (dossier disque)';
+      document.getElementById('rename-key-input').value = currentPosKey;
+      document.getElementById('rename-modal').style.display = 'flex';
+    }
+
+    function closeRenameModal() {
+      document.getElementById('rename-modal').style.display = 'none';
+      renameTarget = null;
+    }
+
+    async function submitRename() {
+      const newKey = document.getElementById('rename-key-input').value.trim();
+      if (!newKey) { alert("Merci de renseigner un nom."); return; }
+
+      const btn = document.getElementById('rename-btn-submit');
+      btn.disabled = true;
+      btn.innerText = 'Renommage…';
+
+      try {
+        if (renameTarget === 'lieu') {
+          const newLabel = document.getElementById('rename-label-input').value.trim();
+          const resp = await fetch('/api/rename-lieu', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lieu: currentLieuKey, newKey, newLabel }),
+          });
+          const data = await resp.json();
+          if (data.status !== 'success') { alert('Erreur : ' + (data.message || 'renommage impossible')); return; }
+          APP_DATA = data.config;
+          normalizeAppData();
+          closeRenameModal();
+          populateLieuDropdown();
+          selectLieu(data.lieu);
+        } else if (renameTarget === 'position') {
+          const resp = await fetch('/api/rename-position', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lieu: currentLieuKey, position: currentPosKey, newKey }),
+          });
+          const data = await resp.json();
+          if (data.status !== 'success') { alert('Erreur : ' + (data.message || 'renommage impossible')); return; }
+          APP_DATA = data.config;
+          normalizeAppData();
+          closeRenameModal();
+          populatePositionDropdown(APP_DATA[data.lieu]);
+          loadPanorama(data.lieu, data.position);
+        }
+      } catch (err) {
+        alert('Erreur réseau : ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Renommer';
+      }
+    }
+
+    // =========================================================================
+    // RESCAN MANUEL (sans import) — relance generate_config sur assets/
+    // =========================================================================
+    async function rescanAssets() {
+      try {
+        showLoading(true);
+        const resp = await fetch('/api/rescan', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const data = await resp.json();
+        if (data.status !== 'success') { alert('Erreur : ' + (data.message || 'rescan impossible')); return; }
+        APP_DATA = data.config;
+        normalizeAppData();
+        populateLieuDropdown();
+        if (currentLieuKey && APP_DATA[currentLieuKey]) {
+          populatePositionDropdown(APP_DATA[currentLieuKey]);
+          loadPanorama(currentLieuKey, currentPosKey);
+        } else {
+          const remaining = Object.keys(APP_DATA);
+          if (remaining.length > 0) selectLieu(remaining[0]);
+        }
+        alert('✅ Rescan terminé.');
+      } catch (err) {
+        alert('Erreur réseau : ' + err.message);
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    // =========================================================================
     // IMPORT DE PHOTOS (nouvelle position / nouvelle date / nouveau lieu)
     // =========================================================================
     function openImportModal() {
@@ -1117,19 +1271,29 @@
       document.getElementById('import-new-lieu-group').style.display = (value === '__new__') ? 'flex' : 'none';
     }
 
-    function onImportFilesSelected(fileList) {
-      importSelectedFiles = Array.from(fileList).map(file => {
-        const parsed = parseUploadFilename(file.name);
-        return {
-          file,
-          parsed,
-          status: parsed ? 'pending' : 'error',
-          message: parsed ? '' : "Nom invalide — attendu POSITION_MM-AAAA.jpg",
-          overwrite: false,
-          thumbUrl: /^image\//.test(file.type) ? URL.createObjectURL(file) : null,
-        };
-      });
+    function addFilesToImportSelection(files) {
+      const newEntries = Array.from(files)
+        .filter(file => /^image\/(jpeg|png)$/.test(file.type) || /\.(jpe?g|png)$/i.test(file.name))
+        .map(file => {
+          const parsed = parseUploadFilename(file.name);
+          return {
+            file,
+            parsed,
+            status: parsed ? 'pending' : 'error',
+            message: parsed ? '' : "Nom invalide — attendu POSITION_MM-AAAA.jpg",
+            overwrite: false,
+            allowDuplicate: false,
+            thumbUrl: /^image\//.test(file.type) ? URL.createObjectURL(file) : null,
+          };
+        });
+      importSelectedFiles = importSelectedFiles.concat(newEntries);
       renderImportFileList();
+    }
+
+    function onImportFilesSelected(fileList) {
+      // Remplace la sélection (comportement natif du <input type=file multiple>).
+      importSelectedFiles = [];
+      addFilesToImportSelection(fileList);
     }
 
     function renderImportFileList() {
@@ -1137,13 +1301,14 @@
       container.innerHTML = '';
       importSelectedFiles.forEach((entry) => {
         const row = document.createElement('div');
-        row.className = 'import-file-row' + (entry.status === 'conflict' ? ' conflict' : '');
+        row.className = 'import-file-row' + (entry.status === 'conflict' ? ' conflict' : (entry.status === 'duplicate' ? ' duplicate' : ''));
 
         let statusColor = 'var(--text-muted)';
         let statusText = 'En attente';
         if (entry.status === 'error') { statusColor = 'var(--danger)'; statusText = '⚠️ ' + entry.message; }
         if (entry.status === 'success') { statusColor = 'var(--success)'; statusText = '✅ Importée'; }
         if (entry.status === 'conflict') { statusColor = 'var(--accent-time)'; statusText = '⚠️ Existe déjà — cliquer pour écraser'; }
+        if (entry.status === 'duplicate') { statusColor = 'var(--accent-time)'; statusText = '⚠️ Doublon détecté (' + (entry.existingPath || '') + ') — cliquer pour importer quand même'; }
         if (entry.status === 'uploading') { statusColor = 'var(--accent-space)'; statusText = '⏳ Envoi…'; }
 
         const infoLine = entry.parsed
@@ -1162,6 +1327,8 @@
 
         if (entry.status === 'conflict') {
           row.onclick = () => { entry.overwrite = true; entry.status = 'pending'; renderImportFileList(); };
+        } else if (entry.status === 'duplicate') {
+          row.onclick = () => { entry.allowDuplicate = true; entry.status = 'pending'; renderImportFileList(); };
         }
         container.appendChild(row);
       });
@@ -1211,11 +1378,17 @@
             body: JSON.stringify({
               lieu, isNewLieu, filename: entry.file.name,
               imageBase64: base64, overwrite: !!entry.overwrite,
+              allowDuplicate: !!entry.allowDuplicate,
             }),
           });
           const data = await resp.json();
           if (data.status === 'conflict') {
             entry.status = 'conflict';
+            entry.message = data.message || '';
+          } else if (data.status === 'duplicate') {
+            entry.status = 'duplicate';
+            entry.existingPath = data.existingPath || '';
+            entry.message = data.message || '';
           } else if (data.status === 'success') {
             entry.status = 'success';
             APP_DATA = data.config;
@@ -1236,7 +1409,7 @@
       btn.disabled = false;
       btn.innerText = 'Importer';
 
-      const stillPending = importSelectedFiles.some(e => e.status === 'pending' || e.status === 'conflict');
+      const stillPending = importSelectedFiles.some(e => e.status === 'pending' || e.status === 'conflict' || e.status === 'duplicate');
       if (!stillPending) {
         document.getElementById('import-file-input').value = '';
       }
@@ -1248,6 +1421,40 @@
         loadPanorama(lastSuccessTarget.lieu, lastSuccessTarget.position);
       }
     }
+
+    // ==========================================
+    // GLISSER-DÉPOSER SUR LA ZONE D'IMPORT
+    // ==========================================
+    (function setupImportDropzone() {
+      const zone = document.getElementById('import-dropzone');
+      if (!zone) return;
+
+      ['dragenter', 'dragover'].forEach(evtName => {
+        zone.addEventListener(evtName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          zone.classList.add('drag-over');
+        });
+      });
+
+      ['dragleave', 'dragend'].forEach(evtName => {
+        zone.addEventListener(evtName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          zone.classList.remove('drag-over');
+        });
+      });
+
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.remove('drag-over');
+        const dropped = e.dataTransfer && e.dataTransfer.files;
+        if (dropped && dropped.length > 0) {
+          addFilesToImportSelection(dropped);
+        }
+      });
+    })();
 
     // =========================================================================
     // SUPPRESSION D'UNE POSITION / D'UN LIEU ENTIER

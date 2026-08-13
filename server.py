@@ -9,6 +9,10 @@ Serveur web léger pour l'application PearView (visite virtuelle 360° temporell
   automatique des dossiers assets/LIEU/POSITION nécessaires
 - Expose POST /api/delete-position et POST /api/delete-lieu pour supprimer,
   depuis le mode éditeur, une position (et ses photos) ou un lieu entier
+- Expose POST /api/rescan pour relancer un scan de assets/ sans import
+- Expose POST /api/rename-lieu et POST /api/rename-position pour renommer
+  un lieu ou une position (dossier disque + config.json + flèches pointant
+  dessus)
 - Conserve un historique horodaté (max MAX_BACKUPS) dans backups/
 
 Compatible auto-hébergement (Synology NAS / Docker) : aucune dépendance externe,
@@ -16,6 +20,7 @@ uniquement la bibliothèque standard Python 3.
 """
 
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -141,6 +146,37 @@ def prune_dangling_arrows(config, dead_lieu, dead_position):
             ]
 
 
+def compute_file_hash(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def find_duplicate_photo(raw_bytes):
+    """Cherche si une image de contenu strictement identique existe déjà
+    quelque part dans assets/ (tous lieux/positions confondus), peu importe
+    son nom de fichier. Retourne le chemin relatif du premier doublon trouvé,
+    ou None. Utile quand la même photo est réimportée par erreur sous un nom
+    (donc une date) différent."""
+    target_hash = hashlib.sha256(raw_bytes).hexdigest()
+    assets_dir = generate_config.ASSETS_DIR
+    if not os.path.isdir(assets_dir):
+        return None
+    for root, _dirs, files in os.walk(assets_dir):
+        for fname in files:
+            if not fname.lower().endswith(generate_config.VALID_EXTENSIONS):
+                continue
+            fpath = os.path.join(root, fname)
+            try:
+                if compute_file_hash(fpath) == target_hash:
+                    return fpath.replace("\\", "/")
+            except OSError:
+                continue
+    return None
+
+
 def prune_dangling_lieu(config, dead_lieu):
     """Retire, dans TOUTES les positions de TOUS les lieux, les flèches qui
     pointaient vers le lieu qu'on vient de supprimer entièrement."""
@@ -159,6 +195,7 @@ def handle_upload_photo(payload):
     filename = (payload.get("filename") or "").strip()
     image_b64 = payload.get("imageBase64") or ""
     overwrite = bool(payload.get("overwrite", False))
+    allow_duplicate = bool(payload.get("allowDuplicate", False))
 
     if not lieu or not filename or not image_b64:
         raise ConfigValidationError("Champs manquants (lieu, filename, imageBase64).")
@@ -197,6 +234,16 @@ def handle_upload_photo(payload):
     if len(raw) > MAX_UPLOAD_BYTES:
         raise ConfigValidationError("Image trop volumineuse.")
 
+    if not allow_duplicate:
+        dup_path = find_duplicate_photo(raw)
+        target_rel = target_path.replace("\\", "/")
+        if dup_path and dup_path != target_rel:
+            return {
+                "status": "duplicate",
+                "message": f"Une image de contenu identique existe déjà : {dup_path}",
+                "existingPath": dup_path,
+            }
+
     os.makedirs(pos_dir, exist_ok=True)
     tmp_path = target_path + ".tmp"
     with open(tmp_path, "wb") as f:
@@ -212,6 +259,123 @@ def handle_upload_photo(payload):
     write_config(config)
 
     return {"status": "success", "lieu": lieu, "position": position, "config": config}
+
+
+# =============================================================================
+# RESCAN MANUEL (sans import) — relance generate_config sur assets/
+# =============================================================================
+
+def handle_rescan():
+    """Relance un scan complet de assets/ et régénère config.json en
+    conséquence (ajoute/actualise les lieux, positions et photos trouvées,
+    sans jamais supprimer une entrée existante — pour les suppressions,
+    voir handle_delete_position / handle_delete_lieu)."""
+    make_backup()
+    config = generate_config.build_config()
+    write_config(config)
+    log.info("Rescan manuel effectué (%d lieu(x))", len(config))
+    return {"status": "success", "config": config}
+
+
+# =============================================================================
+# RENOMMAGE D'UN LIEU / D'UNE POSITION
+# =============================================================================
+
+def handle_rename_lieu(payload):
+    old_lieu = (payload.get("lieu") or "").strip()
+    new_key = (payload.get("newKey") or "").strip()
+    new_label = payload.get("newLabel")
+    if not old_lieu:
+        raise ConfigValidationError("Champ 'lieu' requis.")
+
+    config = generate_config.load_existing_config()
+    if old_lieu not in config:
+        raise ConfigValidationError("Lieu introuvable dans la configuration.")
+
+    rename_key = bool(new_key) and new_key != old_lieu
+    if rename_key:
+        if not is_safe_path_component(new_key):
+            raise ConfigValidationError("Nouveau nom de lieu invalide.")
+        if new_key in config:
+            raise ConfigValidationError(f"Un lieu « {new_key} » existe déjà.")
+        new_dir = os.path.join(generate_config.ASSETS_DIR, new_key)
+        if os.path.exists(new_dir):
+            raise ConfigValidationError(f"Le dossier '{new_dir}' existe déjà sur le disque.")
+
+    make_backup()
+
+    working_lieu = old_lieu
+    if rename_key:
+        old_dir = os.path.join(generate_config.ASSETS_DIR, old_lieu)
+        new_dir = os.path.join(generate_config.ASSETS_DIR, new_key)
+        if os.path.isdir(old_dir):
+            os.rename(old_dir, new_dir)
+            log.info("Dossier lieu renommé : %s -> %s", old_dir, new_dir)
+
+        config[new_key] = config.pop(old_lieu)
+        # Répercute le renommage sur toutes les flèches qui pointaient vers ce lieu.
+        for lieu_val in config.values():
+            for pos_val in lieu_val.get("positions", {}).values():
+                for arrow in pos_val.get("arrows", []):
+                    if arrow.get("targetLieu") == old_lieu:
+                        arrow["targetLieu"] = new_key
+        working_lieu = new_key
+
+    if new_label is not None and str(new_label).strip():
+        config[working_lieu]["label"] = str(new_label).strip()
+
+    write_config(config)
+    log.info("Lieu renommé/mis à jour : %s -> %s", old_lieu, working_lieu)
+    return {"status": "success", "config": config, "lieu": working_lieu}
+
+
+def handle_rename_position(payload):
+    lieu = (payload.get("lieu") or "").strip()
+    old_position = (payload.get("position") or "").strip()
+    new_key = (payload.get("newKey") or "").strip()
+
+    if not lieu or not old_position:
+        raise ConfigValidationError("Champs 'lieu' et 'position' requis.")
+    if not new_key:
+        raise ConfigValidationError("Le nouveau nom de position est requis.")
+    if not is_safe_path_component(new_key):
+        raise ConfigValidationError("Nouveau nom de position invalide.")
+
+    config = generate_config.load_existing_config()
+    if lieu not in config or old_position not in config.get(lieu, {}).get("positions", {}):
+        raise ConfigValidationError("Lieu ou position introuvable dans la configuration.")
+
+    if new_key == old_position:
+        return {"status": "success", "config": config, "lieu": lieu, "position": old_position}
+    if new_key in config[lieu]["positions"]:
+        raise ConfigValidationError(f"Une position « {new_key} » existe déjà dans ce lieu.")
+
+    new_dir = os.path.join(generate_config.ASSETS_DIR, lieu, new_key)
+    if os.path.exists(new_dir):
+        raise ConfigValidationError(f"Le dossier '{new_dir}' existe déjà sur le disque.")
+
+    make_backup()
+
+    old_dir = os.path.join(generate_config.ASSETS_DIR, lieu, old_position)
+    if os.path.isdir(old_dir):
+        os.rename(old_dir, new_dir)
+        log.info("Dossier position renommé : %s -> %s", old_dir, new_dir)
+
+    config[lieu]["positions"][new_key] = config[lieu]["positions"].pop(old_position)
+    if config[lieu].get("defaultPosition") == old_position:
+        config[lieu]["defaultPosition"] = new_key
+
+    # Répercute le renommage sur toutes les flèches (de n'importe quel lieu)
+    # qui pointaient vers cette position.
+    for lieu_val in config.values():
+        for pos_val in lieu_val.get("positions", {}).values():
+            for arrow in pos_val.get("arrows", []):
+                if arrow.get("targetLieu") == lieu and arrow.get("targetPos") == old_position:
+                    arrow["targetPos"] = new_key
+
+    write_config(config)
+    log.info("Position renommée : %s/%s -> %s", lieu, old_position, new_key)
+    return {"status": "success", "config": config, "lieu": lieu, "position": new_key}
 
 
 # =============================================================================
@@ -334,6 +498,9 @@ class PearViewHandler(SimpleHTTPRequestHandler):
             "/api/upload-photo": self._handle_upload_photo,
             "/api/delete-position": self._handle_delete_position,
             "/api/delete-lieu": self._handle_delete_lieu,
+            "/api/rescan": self._handle_rescan,
+            "/api/rename-lieu": self._handle_rename_lieu,
+            "/api/rename-position": self._handle_rename_position,
         }
         handler = routes.get(self.path)
         if handler is None:
@@ -397,6 +564,43 @@ class PearViewHandler(SimpleHTTPRequestHandler):
         except OSError as exc:
             log.error("Erreur disque lors de la suppression : %s", exc)
             self._send_json(500, {"status": "error", "message": "Erreur serveur lors de la suppression."})
+
+    def _handle_rescan(self):
+        # Pas de corps attendu pour cette route : on ne lit pas le body.
+        try:
+            result = handle_rescan()
+            self._send_json(200, result)
+        except OSError as exc:
+            log.error("Erreur disque lors du rescan : %s", exc)
+            self._send_json(500, {"status": "error", "message": "Erreur serveur lors du rescan."})
+
+    def _handle_rename_lieu(self):
+        payload = self._read_json_body()
+        if payload is None:
+            return
+        try:
+            result = handle_rename_lieu(payload)
+            self._send_json(200, result)
+        except ConfigValidationError as exc:
+            log.warning("Rejet du renommage : %s", exc)
+            self._send_json(400, {"status": "error", "message": str(exc)})
+        except OSError as exc:
+            log.error("Erreur disque lors du renommage : %s", exc)
+            self._send_json(500, {"status": "error", "message": "Erreur serveur lors du renommage."})
+
+    def _handle_rename_position(self):
+        payload = self._read_json_body()
+        if payload is None:
+            return
+        try:
+            result = handle_rename_position(payload)
+            self._send_json(200, result)
+        except ConfigValidationError as exc:
+            log.warning("Rejet du renommage : %s", exc)
+            self._send_json(400, {"status": "error", "message": str(exc)})
+        except OSError as exc:
+            log.error("Erreur disque lors du renommage : %s", exc)
+            self._send_json(500, {"status": "error", "message": "Erreur serveur lors du renommage."})
 
 
 def main():

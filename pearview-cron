@@ -1,0 +1,3 @@
+PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
+*/5 * * * * root cd /app && python3 generate_config.py >> /var/log/cron.log 2>&1
+

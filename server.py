@@ -34,8 +34,8 @@ import generate_config
 
 PORT = int(os.environ.get("PEARVIEW_PORT", 1500))
 HOST = os.environ.get("PEARVIEW_HOST", "0.0.0.0")
-CONFIG_FILE = "config.json"
-BACKUP_DIR = "backups"
+CONFIG_FILE = "data/config.json"
+BACKUP_DIR = "data/backups"
 MAX_BACKUPS = 20
 # 130 Mo : garde-fou contre les payloads absurdes. Les photos importées sont
 # envoyées encodées en base64 (+/- 33% de volume) à l'intérieur d'un JSON,

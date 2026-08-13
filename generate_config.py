@@ -16,8 +16,8 @@ import json
 import logging
 import os
 
-CONFIG_FILE = "config.json"
-ASSETS_DIR = "assets"
+CONFIG_FILE = "data/config.json"
+ASSETS_DIR = "data/assets"
 VALID_EXTENSIONS = (".jpg", ".jpeg", ".png")
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")

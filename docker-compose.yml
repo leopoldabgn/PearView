@@ -1,0 +1,14 @@
+services:
+  pearview:
+    build: .
+    container_name: pearview
+    ports:
+      - "1500:1500"
+    volumes:
+      # Un seul montage de dossier : garantit que l'écriture atomique (os.replace)
+      # de config.json et le renommage de dossiers fonctionnent sans erreur !
+      - ./data:/app/data
+    environment:
+      - PEARVIEW_PORT=1500
+      - PEARVIEW_HOST=0.0.0.0
+    restart: unless-stopped

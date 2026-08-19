@@ -662,7 +662,7 @@
       </a-camera>
 
       <!-- Manette gauche : Zoom joystick -->
-      <a-entity id="leftHand" oculus-touch-controls="hand: left" raycaster="objects: .raycastable" vr-zoom-controls></a-entity>
+      <a-entity id="leftHand" laser-controls="hand: left" raycaster="objects: .raycastable"></a-entity>
 
       <!-- Manette droite : Snap turn + boutons d'époque -->
       <a-entity id="rightHand" oculus-touch-controls="hand: right" raycaster="objects: .raycastable" controller-buttons snap-turn="angle: 30; threshold: 0.6"></a-entity>
@@ -1057,40 +1057,6 @@
         window.addEventListener('wheel', this._onWheel, { passive: true });
       },
       remove: function () { window.removeEventListener('wheel', this._onWheel); }
-    });
-
-    AFRAME.registerComponent('vr-zoom-controls', {
-      schema: {
-        speed: { default: 0.015 },
-        minScale: { default: 0.5 },  // Zoom max
-        maxScale: { default: 2.0 }   // Dézoom max
-      },
-
-      init: function () {
-        this.currentScale = 1.0;
-
-        this.el.addEventListener('axismove', (e) => {
-          const axes = e.detail.axis;
-          // Axe Y du stick gauche (vers l'avant = zoom, vers l'arrière = dézoom)
-          const y = axes[3] !== undefined ? axes[3] : axes[1];
-
-          if (Math.abs(y) > 0.15) {
-            const sky = document.querySelector('#background');
-            if (sky) {
-              // Pousser le stick en avant (y < 0) zoome en rapprochant la sphère
-              this.currentScale += y * this.data.speed;
-              this.currentScale = Math.min(Math.max(this.currentScale, this.data.minScale), this.data.maxScale);
-              
-              sky.setAttribute('scale', `${this.currentScale} ${this.currentScale} ${this.currentScale}`);
-            }
-          }
-        });
-
-        // Réinitialise le zoom lors d'un changement de panorama
-        document.querySelector('#background').addEventListener('materialvideoupdate', () => {
-          this.currentScale = 1.0;
-        });
-      }
     });
 
     // ==========================================

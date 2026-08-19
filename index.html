@@ -656,9 +656,21 @@
       <img id="hotspot-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><circle cx='32' cy='32' r='27' fill='%23E8A24B' stroke='%23ffffff' stroke-width='3'/><text x='32' y='43' font-size='32' font-family='Georgia,serif' font-weight='bold' text-anchor='middle' fill='%23ffffff'>i</text></svg>">
     </a-assets>
 
-    <a-entity id="main-camera" camera="fov: 80" look-controls="reverseMouseDrag: true" position="0 1.6 0" zoom-controls compass-tracker>
-      <a-entity cursor="rayOrigin: mouse" raycaster="objects: .raycastable"></a-entity>
+    <!-- Remplacer le bloc caméra / contrôleurs par celui-ci : -->
+    <a-entity id="camera-rig" position="0 0 0" rotation="0 0 0">
+      
+      <a-entity id="main-camera" camera="fov: 70" look-controls="reverseMouseDrag: true" position="0 1.6 0" zoom-controls compass-tracker>
+        <a-entity cursor="rayOrigin: mouse" raycaster="objects: .raycastable"></a-entity>
+      </a-entity>
+
+      <a-entity id="leftHand" laser-controls="hand: left" raycaster="objects: .raycastable"></a-entity>
+      <a-entity id="rightHand" laser-controls="hand: right" raycaster="objects: .raycastable" controller-buttons snap-turn="angle: 30; threshold: 0.6"></a-entity>
+
     </a-entity>
+
+    <!-- <a-entity id="main-camera" camera="fov: 80" look-controls="reverseMouseDrag: true" position="0 1.6 0" zoom-controls compass-tracker>
+      <a-entity cursor="rayOrigin: mouse" raycaster="objects: .raycastable"></a-entity>
+    </a-entity> -->
 
     <a-sky id="background" src=""
            animation__fadeout="property: components.material.material.opacity; type: opacity; from: 1; to: 0; dur: 320; startEvents: fade-out"
@@ -883,7 +895,7 @@
         deletePlaceConfirm: "Supprimer définitivement le lieu \u00ab %s \u00bb et TOUTES ses positions/photos ?\nCette action est irréversible.",
         noMorePlacesError: "Plus aucun lieu configuré — importez une photo pour recommencer.",
         unsavedChangesConfirm: "Vous avez des modifications non sauvegardées. Quitter sans sauvegarder ?",
-        vrHelpText: "(Manette : A/B pour changer d'époque)",
+        vrHelpText: "(Manette : A/B pour changer d'epoque)",
         defaultInfoTitle: "Information",
         musicLabel: "🎵 Musique d'ambiance",
         musicApplyWholePlace: "Appliquer à tout le lieu",
@@ -2188,6 +2200,43 @@ function afterStructuralDelete() {
       init: function () {
         this.el.addEventListener('abuttondown', () => cycleDate(1));
         this.el.addEventListener('bbuttondown', () => cycleDate(-1));
+      }
+    });
+
+    // Composant pour la rotation par crans instantanés (Snap Turn)
+    AFRAME.registerComponent('snap-turn', {
+      schema: {
+        angle: { default: 30 },     // Angle de rotation par à-coup (en degrés)
+        threshold: { default: 0.6 } // Sensibilité du joystick (entre 0 et 1)
+      },
+
+      init: function () {
+        this.canSnap = true;
+
+        // Événement standard A-Frame pour les axes des manettes VR (Quest / WebXR)
+        this.el.addEventListener('axismove', (e) => {
+          // Sur les manettes Quest, l'axe X du joystick est en position 2 (ou 0 selon le mapping standard)
+          const axes = e.detail.axis;
+          const x = axes[2] !== undefined ? axes[2] : axes[0];
+
+          if (Math.abs(x) > this.data.threshold) {
+            if (this.canSnap) {
+              const rig = document.querySelector('#camera-rig');
+              if (rig) {
+                const rot = rig.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
+                const delta = x > 0 ? -this.data.angle : this.data.angle; // Coup à droite = pivote à droite
+                rig.setAttribute('rotation', {
+                  x: rot.x,
+                  y: (rot.y + delta) % 360,
+                  z: rot.z
+                });
+              }
+              this.canSnap = false; // Bloque les répétitions tant que le stick n'est pas relâché
+            }
+          } else if (Math.abs(x) < 0.2) {
+            this.canSnap = true; // Réarme dès que le joystick revient au centre
+          }
+        });
       }
     });
 

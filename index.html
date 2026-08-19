@@ -42,15 +42,61 @@
     /* ==========================================================
        MAIN PANEL (top-left)
        ========================================================== */
+    /* 1. Limiter la hauteur globale du conteneur et gérer le débordement */
     #ui-container {
       position: absolute;
       top: 14px;
       left: 14px;
+      bottom: 14px; /* Fixe la limite basse */
       z-index: 999;
       display: flex;
       flex-direction: column;
       gap: 10px;
-      max-width: 300px;
+      max-width: 350px;
+      pointer-events: none; /* Laisse passer les clics autour des panneaux */
+    }
+
+    /* Rétablir les clics uniquement sur les panneaux */
+    .ui-panel {
+      pointer-events: auto;
+      max-height: 100%;
+    }
+
+    /* 2. Scrollbar personnalisée et fluide pour le panneau d'édition */
+    #editor-panel {
+      max-height: calc(100vh - 180px); /* Laisse la place au panneau principal au-dessus */
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-strong) transparent;
+    }
+
+    #editor-panel::-webkit-scrollbar {
+      width: 5px;
+    }
+    #editor-panel::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 4px;
+    }
+
+    /* 3. Compactage : boutons d'action sur 2 colonnes */
+    #editor-panel .ui-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    /* Les labels, le texte d'aide et les inputs prennent toute la largeur */
+    #editor-panel .ui-group > label,
+    #editor-panel .ui-group > #music-current-info,
+    #editor-panel .ui-group > #music-file-input,
+    #editor-panel .ui-group > .checkbox-container {
+      grid-column: 1 / -1;
+    }
+
+    /* Le bouton "Sauvegarder" reste en pleine largeur et bien visible */
+    #editor-panel > .btn-success {
+      grid-column: 1 / -1;
+      padding: 10px;
     }
 
     .ui-panel {
@@ -177,6 +223,27 @@
     }
     #lang-toggle:hover { border-color: var(--accent-space); }
 
+    /* Music toggle button (top-right, mute/unmute ambient sound) */
+    #music-toggle {
+      position: absolute;
+      top: 14px;
+      right: 200px;
+      z-index: 1000;
+      width: 38px; height: 38px;
+      background: var(--bg-panel-solid);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      font-size: 15px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+      cursor: pointer;
+    }
+    #music-toggle:hover { border-color: var(--accent-time); }
+    #music-toggle.is-muted { color: var(--text-muted); }
+
     /* ==========================================================
        EDITOR CROSSHAIR
        ========================================================== */
@@ -294,6 +361,19 @@
     }
     #import-dropzone p.hint { font-size: 10.5px; color: var(--text-muted); margin: 6px 0 0; line-height: 1.4; }
 
+    /* Ambient music editor block */
+    #music-current-info {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      background: #171c23;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 7px 9px;
+      line-height: 1.4;
+      word-break: break-all;
+    }
+    #music-current-info.has-music { color: var(--accent-time); border-color: var(--accent-time-dim); }
+
     /* ==========================================================
        MOBILE RESPONSIVE
        ========================================================== */
@@ -304,6 +384,7 @@
       #compass-wrap { padding: 8px; top: 62px; }
       #compass-svg { width: 68px; height: 68px; }
       #lang-toggle { top: 14px; right: 14px; }
+      #music-toggle { top: 60px; right: 14px; }
       #hotspot-info { bottom: 14px; width: calc(100vw - 24px); }
     }
 
@@ -321,8 +402,12 @@
   <div id="crosshair"></div>
   <div id="load-indicator" data-i18n="loading">LOADING…</div>
 
+  <!-- Ambient looping music player (one audio element, src swapped per position) -->
+  <audio id="ambient-audio" loop preload="auto"></audio>
+
   <button id="panel-toggle" onclick="togglePanelCollapse()">☰</button>
   <button id="lang-toggle" onclick="toggleLanguage()">FR</button>
+  <button id="music-toggle" onclick="toggleMusicMute()" title="Mute/unmute ambient music">🔊</button>
 
   <!-- Main 2D UI -->
   <div id="ui-container">
@@ -363,11 +448,11 @@
         <button id="btn-add-arrow" class="btn-primary" onclick="spawnItemAtCenter('arrow')" data-i18n="addArrowBtn">➕ Navigation arrow</button>
         <button id="btn-add-hotspot" onclick="spawnItemAtCenter('hotspot')" style="border-color: var(--accent-time-dim);" data-i18n="addHotspotBtn">ℹ️ Info point</button>
       </div>
-      <p style="font-size: 11px; color: var(--text-muted); margin: 0; line-height:1.5;" data-i18n-html="instructionsText">
+      <!-- <p style="font-size: 11px; color: var(--text-muted); margin: 0; line-height:1.5;" data-i18n-html="instructionsText">
         1. Aim at the desired spot on the ground.<br>
         2. Choose a tool above.<br>
         3. Click on a placed item to adjust, link, or delete it.
-      </p>
+      </p> -->
 
       <hr class="sep">
 
@@ -375,6 +460,20 @@
         <label data-i18n="renameLabel">Rename</label>
         <button onclick="openRenamePlaceModal()" data-i18n="renamePlaceBtn">✏️ Rename this place</button>
         <button onclick="openRenamePositionModal()" data-i18n="renamePositionBtn">✏️ Rename this position</button>
+      </div>
+
+      <hr class="sep">
+
+      <!-- AMBIENT MUSIC MANAGEMENT -->
+      <div class="ui-group">
+        <label data-i18n="musicLabel">🎵 Ambient music</label>
+        <div id="music-current-info" data-i18n="noMusicLabel">No music configured</div>
+        <input type="file" id="music-file-input" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,.mp3,.m4a,.wav" onchange="onMusicFileSelected(this.files)">
+        <label class="checkbox-container" style="font-size:12px;">
+          <input type="checkbox" id="music-scope-place">
+          <span data-i18n="musicApplyWholePlace">Apply to entire place</span>
+        </label>
+        <button class="btn-danger" onclick="clearCurrentMusic()" data-i18n="clearMusicBtn">🔇 Remove music</button>
       </div>
 
       <hr class="sep">
@@ -677,6 +776,7 @@
         alertRescanError: "Error: ",
         alertNetworkError: "Network error: ",
         alertDeleteError: "Error: ",
+        alertMusicError: "Error: ",
         alertSaveSuccess: "✅ Save successful (backup created in /backups).",
         alertPlaceAlsoRemoved: "The last position was deleted: the place was removed too.",
         deletePositionConfirm: "Permanently delete the position \u00ab %s \u00bb (%s)?\nAll associated photos will be erased from disk.%s",
@@ -686,6 +786,12 @@
         unsavedChangesConfirm: "You have unsaved changes. Leave without saving?",
         vrHelpText: "(Controller: A/B to change era)",
         defaultInfoTitle: "Information",
+        musicLabel: "🎵 Ambient music",
+        musicApplyWholePlace: "Apply to entire place",
+        clearMusicBtn: "🔇 Remove music",
+        currentMusicLabel: "Current: ",
+        noMusicLabel: "No music configured",
+        musicUploading: "⏳ Uploading music…",
       },
       fr: {
         loading: "CHARGEMENT…",
@@ -769,6 +875,7 @@
         alertRescanError: "Erreur : ",
         alertNetworkError: "Erreur réseau : ",
         alertDeleteError: "Erreur : ",
+        alertMusicError: "Erreur : ",
         alertSaveSuccess: "✅ Sauvegarde réussie (backup créé dans /backups).",
         alertPlaceAlsoRemoved: "La dernière position a été supprimée : le lieu a été supprimé également.",
         deletePositionConfirm: "Supprimer définitivement la position \u00ab %s \u00bb (%s) ?\nToutes les photos associées seront effacées du disque.%s",
@@ -778,6 +885,12 @@
         unsavedChangesConfirm: "Vous avez des modifications non sauvegardées. Quitter sans sauvegarder ?",
         vrHelpText: "(Manette : A/B pour changer d'époque)",
         defaultInfoTitle: "Information",
+        musicLabel: "🎵 Musique d'ambiance",
+        musicApplyWholePlace: "Appliquer à tout le lieu",
+        clearMusicBtn: "🔇 Retirer la musique",
+        currentMusicLabel: "Actuelle : ",
+        noMusicLabel: "Aucune musique configurée",
+        musicUploading: "⏳ Envoi de la musique…",
       },
     };
 
@@ -809,6 +922,7 @@
             renameTarget === 'position' ? t('technicalIdPositionLabel') : t('technicalIdLabel');
         }
         if (typeof renderImportFileList === 'function') renderImportFileList();
+        if (typeof updateMusicInfo === 'function') updateMusicInfo();
       }
     }
 
@@ -830,6 +944,12 @@
 
     let importSelectedFiles = [];    // [{ file, parsed, status, overwrite, allowDuplicate, message, thumbUrl }]
     let renameTarget = null;         // 'place' | 'position'
+
+    // Ambient music state: the path currently loaded/playing in <audio>.
+    // Kept independent from currentPlaceKey/currentPosKey so we can compare
+    // "is the new position's music the SAME file as what's already playing".
+    let currentMusicPath = null;
+    let isMusicMuted = (localStorage.getItem('pearview-music-muted') === '1');
 
     // =========================================================================
     // UTILITIES
@@ -857,6 +977,56 @@
 
     function togglePanelCollapse() {
       document.getElementById('ui-container').classList.toggle('collapsed');
+    }
+
+    // ==========================================
+    // AMBIENT MUSIC PLAYBACK (loop, per-position, no restart on identical track)
+    // ==========================================
+    function toggleMusicMute() {
+      isMusicMuted = !isMusicMuted;
+      localStorage.setItem('pearview-music-muted', isMusicMuted ? '1' : '0');
+      const audio = document.getElementById('ambient-audio');
+      const btn = document.getElementById('music-toggle');
+      audio.muted = isMusicMuted;
+      btn.textContent = isMusicMuted ? '🔇' : '🔊';
+      btn.classList.toggle('is-muted', isMusicMuted);
+      if (!isMusicMuted && currentMusicPath && audio.paused) {
+        audio.play().catch(() => {});
+      }
+    }
+
+    // Called whenever we navigate to a position (place change, position
+    // change, or date change). The "music" field lives on the POSITION
+    // object (not per-date), so changing only the date must never touch it.
+    // If the target position's music path is strictly identical to what's
+    // already loaded, we do nothing at all - the ambient sound just keeps
+    // playing/looping uninterrupted, exactly as requested.
+    function updateAmbientMusic(posData) {
+      const audio = document.getElementById('ambient-audio');
+      const newPath = (posData && posData.music) ? posData.music : null;
+
+      if (newPath === currentMusicPath) {
+        // Same track (or both empty): leave playback exactly as it is.
+        return;
+      }
+
+      currentMusicPath = newPath;
+
+      if (newPath) {
+        audio.loop = true;
+        audio.muted = isMusicMuted;
+        if (audio.getAttribute('src') !== newPath) {
+          audio.src = newPath;
+        }
+        audio.play().catch(() => {
+          // Autoplay can be blocked before any user gesture; playback will
+          // resume as soon as the user interacts with the page (click, etc).
+        });
+      } else {
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+      }
     }
 
     // ==========================================
@@ -896,6 +1066,25 @@
     async function initApp() {
       applyTranslations();
       showLoading(true);
+
+      const musicBtn = document.getElementById('music-toggle');
+      document.getElementById('ambient-audio').muted = isMusicMuted;
+      musicBtn.textContent = isMusicMuted ? '🔇' : '🔊';
+      musicBtn.classList.toggle('is-muted', isMusicMuted);
+      // First user interaction unlocks autoplay in browsers that blocked it.
+      const unlockAudioOnce = () => {
+        const audio = document.getElementById('ambient-audio');
+        if (currentMusicPath && audio.paused && !isMusicMuted) audio.play().catch(() => {});
+        window.removeEventListener('click', unlockAudioOnce);
+      };
+      window.addEventListener('click', unlockAudioOnce);
+
+    // Synchronise le panneau avec l'état réel de la checkbox au chargement
+      const editorCheckbox = document.getElementById('toggle-editor');
+      if (editorCheckbox && editorCheckbox.checked) {
+        toggleEditorMode(true);
+      }
+
       try {
         const response = await fetch('data/config.json');
         if (!response.ok) throw new Error(`HTTP status ${response.status}`);
@@ -922,7 +1111,6 @@
         console.error(t('initError'), error);
         document.getElementById('error-msg').innerText = t('loadConfigError') + error.message;
         
-        // ✅ En cas d'erreur de chargement, on active aussi le mode éditeur par sécurité
         document.getElementById('toggle-editor').checked = true;
         toggleEditorMode(true);
       } finally {
@@ -947,6 +1135,7 @@
           }
           if (!posData.arrows) posData.arrows = [];
           if (!posData.hotspots) posData.hotspots = [];
+          if (posData.music === undefined) posData.music = null;
         });
       });
     }
@@ -1018,6 +1207,15 @@
         return;
       }
       document.getElementById('error-msg').innerText = '';
+
+      // Ambient music depends only on the POSITION (never on the date), and
+      // is updated regardless of whether this call is a place/position
+      // change or just a date change - updateAmbientMusic() itself is a
+      // no-op when the target path equals what's already playing, which is
+      // exactly what keeps the sound uninterrupted across date changes and
+      // across positions that intentionally share the same ambient track.
+      updateAmbientMusic(posData);
+      updateMusicInfo();
 
       if (dateIndex !== null) {
         posData.currentDateIdx = dateIndex;
@@ -1165,6 +1363,7 @@
       isEditorMode = enabled;
       document.getElementById('editor-panel').style.display = enabled ? 'flex' : 'none';
       document.getElementById('crosshair').style.display = enabled ? 'block' : 'none';
+      if (enabled) updateMusicInfo();
 
       const cameraEl = document.querySelector('#main-camera');
       if (cameraEl) cameraEl.setAttribute('look-controls', 'reverseMouseDrag', true);
@@ -1464,6 +1663,114 @@
     }
 
     // =========================================================================
+    // AMBIENT MUSIC EDITOR ACTIONS
+    // =========================================================================
+
+    // Refreshes the small "current music" indicator in the editor panel to
+    // reflect APP_DATA for the position currently shown.
+    function updateMusicInfo() {
+      const infoEl = document.getElementById('music-current-info');
+      if (!infoEl) return;
+      const posData = APP_DATA[currentPlaceKey] && APP_DATA[currentPlaceKey].positions[currentPosKey];
+      if (posData && posData.music) {
+        infoEl.textContent = t('currentMusicLabel') + posData.music.split('/').pop();
+        infoEl.classList.add('has-music');
+      } else {
+        infoEl.textContent = t('noMusicLabel');
+        infoEl.classList.remove('has-music');
+      }
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+        reader.onerror = () => reject(reader.error || new Error('Unable to read the file'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Uploads a new audio file (mp3/m4a/wav) and assigns it either to the
+    // current position only, or to every position of the current place at
+    // once (checkbox "Apply to entire place").
+    async function onMusicFileSelected(files) {
+      const file = files && files[0];
+      if (!file || !currentPlaceKey) return;
+
+      const ext = file.name.toLowerCase().split('.').pop();
+      if (!['mp3', 'm4a', 'wav'].includes(ext)) {
+        alert(t('alertMusicError') + 'mp3, m4a ou wav uniquement.');
+        document.getElementById('music-file-input').value = '';
+        return;
+      }
+
+      const scope = document.getElementById('music-scope-place').checked ? 'place' : 'position';
+      const infoEl = document.getElementById('music-current-info');
+      const prevText = infoEl.textContent;
+      infoEl.textContent = t('musicUploading');
+
+      try {
+        showLoading(true);
+        const audioBase64 = await fileToBase64(file);
+        const resp = await fetch('/api/upload-music', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            place: currentPlaceKey,
+            position: currentPosKey,
+            scope,
+            filename: file.name,
+            audioBase64,
+          }),
+        });
+        const data = await resp.json();
+        if (data.status !== 'success') {
+          alert(t('alertMusicError') + (data.message || ''));
+          infoEl.textContent = prevText;
+          return;
+        }
+        APP_DATA = data.config;
+        normalizeAppData();
+        isHasUnsavedChanges = false; // server already persisted config.json for this change
+        updateMusicInfo();
+        // If the currently displayed position's music changed, reflect it
+        // immediately in playback (won't restart if it's the same file).
+        const posData = APP_DATA[currentPlaceKey].positions[currentPosKey];
+        updateAmbientMusic(posData);
+      } catch (err) {
+        alert(t('alertNetworkError') + err.message);
+        infoEl.textContent = prevText;
+      } finally {
+        showLoading(false);
+        document.getElementById('music-file-input').value = '';
+      }
+    }
+
+    // Clears the music of the current position, or of the whole place.
+    async function clearCurrentMusic() {
+      if (!currentPlaceKey) return;
+      const scope = document.getElementById('music-scope-place').checked ? 'place' : 'position';
+
+      try {
+        const resp = await fetch('/api/clear-music', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ place: currentPlaceKey, position: currentPosKey, scope }),
+        });
+        const data = await resp.json();
+        if (data.status !== 'success') { alert(t('alertMusicError') + (data.message || '')); return; }
+        APP_DATA = data.config;
+        normalizeAppData();
+        isHasUnsavedChanges = false;
+        updateMusicInfo();
+        const posData = APP_DATA[currentPlaceKey].positions[currentPosKey];
+        updateAmbientMusic(posData);
+      } catch (err) {
+        alert(t('alertNetworkError') + err.message);
+      }
+    }
+
+    // =========================================================================
     // MANUAL RESCAN (no import) - re-runs generate_config on assets/
     // =========================================================================
     async function rescanAssets() {
@@ -1591,15 +1898,6 @@
           row.onclick = () => { entry.allowDuplicate = true; entry.status = 'pending'; renderImportFileList(); };
         }
         container.appendChild(row);
-      });
-    }
-
-    function fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
-        reader.onerror = () => reject(reader.error || new Error('Unable to read the file'));
-        reader.readAsDataURL(file);
       });
     }
 
@@ -1786,6 +2084,8 @@ function afterStructuralDelete() {
         document.getElementById('error-msg').innerText = t('noMorePlacesError');
         currentPlaceKey = '';
         currentPosKey = '';
+        // Stop any ambient music: no position is selected anymore.
+        updateAmbientMusic(null);
         return;
       }
       populatePlaceDropdown();

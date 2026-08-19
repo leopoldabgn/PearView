@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Scans the assets/ folder (Place/Position/Photos) and generates/enriches
-config.json without overwriting the arrows and info points already configured.
+config.json without overwriting the arrows, info points and ambient music
+already configured.
 
 Expected structure:
   assets/<PLACE>/<POSITION>/<POSITION>_<MM-YYYY>.jpg
@@ -60,7 +61,9 @@ def scan_assets(config):
     places, positions and photo lists). NEVER removes a place or position
     that would still exist in `config` but no longer on disk: deletion is
     handled explicitly server-side (see server.py), not by this additive
-    scan."""
+    scan. Likewise, it NEVER touches the arrows, hotspots or ambient music
+    ("music" field) already configured for an existing position - only the
+    `photos` list is refreshed."""
     if not os.path.isdir(ASSETS_DIR):
         log.warning("Folder '%s' not found - nothing to scan.", ASSETS_DIR)
         return config
@@ -94,13 +97,17 @@ def scan_assets(config):
                 log.warning("No photo found for %s / %s", place, pos)
 
             if pos not in positions:
-                positions[pos] = {"photos": photos, "arrows": [], "hotspots": []}
+                # "music" is the path (e.g. "data/music/<hash>.mp3") of the
+                # ambient sound looped for this position, across all of its
+                # dates. None means "no ambient music configured".
+                positions[pos] = {"photos": photos, "arrows": [], "hotspots": [], "music": None}
             else:
-                # Keeps the arrows / info points already configured,
-                # only refreshes the photo list.
+                # Keeps the arrows / info points / ambient music already
+                # configured, only refreshes the photo list.
                 positions[pos]["photos"] = photos
                 positions[pos].setdefault("arrows", [])
                 positions[pos].setdefault("hotspots", [])
+                positions[pos].setdefault("music", None)
 
     return config
 

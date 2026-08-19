@@ -12,6 +12,12 @@ Lightweight web server for the PearView application (temporal 360° virtual tour
 - Exposes POST /api/rescan to trigger a rescan of assets/ without importing
 - Exposes POST /api/rename-place and POST /api/rename-position to rename
   a place or a position (disk folder + config.json + arrows pointing to it)
+- Exposes POST /api/upload-music, POST /api/set-music and POST /api/clear-music
+  to manage each position's looping ambient music (mp3/m4a/wav), either for
+  a single position or for an entire place at once. Music files are stored
+  once in data/music/ (deduplicated by content hash) and simply referenced
+  by path from config.json, so renaming/deleting a place or position never
+  needs to move or duplicate audio files.
 - Keeps a timestamped history (max MAX_BACKUPS) in backups/
 
 Self-hosting friendly (Synology NAS / Docker): no external dependency,
@@ -35,13 +41,15 @@ PORT = int(os.environ.get("PEARVIEW_PORT", 1500))
 HOST = os.environ.get("PEARVIEW_HOST", "0.0.0.0")
 CONFIG_FILE = "data/config.json"
 BACKUP_DIR = "data/backups"
+MUSIC_DIR = "data/music"
 MAX_BACKUPS = 20
-# 130 MB: safety guard against absurd payloads. Imported photos are sent
-# base64-encoded (+/- 33% size overhead) inside a JSON body, so the limit
-# needs to stay generous relative to the actual file size.
+# 130 MB: safety guard against absurd payloads. Imported photos/audio are
+# sent base64-encoded (+/- 33% size overhead) inside a JSON body, so the
+# limit needs to stay generous relative to the actual file size.
 MAX_UPLOAD_BYTES = 130 * 1024 * 1024
 
 FILENAME_RE = re.compile(r"^(.+)_(\d{2})-(\d{4})\.(jpe?g|png)$", re.IGNORECASE)
+VALID_MUSIC_EXTENSIONS = (".mp3", ".m4a", ".wav")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -250,8 +258,9 @@ def handle_upload_photo(payload):
     log.info("Photo saved: %s (%.1f KB)", target_path, len(raw) / 1024)
 
     # We always regenerate config.json by rescanning assets/: this adds or
-    # refreshes the position without ever touching the arrows and info
-    # points already configured elsewhere (see generate_config.scan_assets).
+    # refreshes the position without ever touching the arrows, info points
+    # or ambient music already configured elsewhere (see
+    # generate_config.scan_assets).
     make_backup()
     config = generate_config.build_config()
     write_config(config)
@@ -312,6 +321,8 @@ def handle_rename_place(payload):
 
         config[new_key] = config.pop(old_place)
         # Propagates the rename to every arrow that pointed to this place.
+        # Note: ambient music references (data/music/<hash>.<ext>) are
+        # independent from place/position folders, so nothing to update there.
         for place_val in config.values():
             for pos_val in place_val.get("positions", {}).values():
                 for arrow in pos_val.get("arrows", []):
@@ -364,7 +375,8 @@ def handle_rename_position(payload):
         config[place]["defaultPosition"] = new_key
 
     # Propagates the rename to every arrow (from any place) that pointed to
-    # this position.
+    # this position. The position's "music" field moves along with it since
+    # it's part of the position object itself - nothing extra to do.
     for place_val in config.values():
         for pos_val in place_val.get("positions", {}).values():
             for arrow in pos_val.get("arrows", []):
@@ -374,6 +386,140 @@ def handle_rename_position(payload):
     write_config(config)
     log.info("Position renamed: %s/%s -> %s", place, old_position, new_key)
     return {"status": "success", "config": config, "place": place, "position": new_key}
+
+
+# =============================================================================
+# AMBIENT MUSIC (per position, optionally applied to a whole place at once)
+# =============================================================================
+
+def _assign_music(config, place, position, music_path):
+    """Assigns music_path (or None to clear) to a single position, or to
+    every position of `place` when position is None (whole-place scope)."""
+    if position:
+        config[place]["positions"][position]["music"] = music_path
+    else:
+        for pos_val in config[place]["positions"].values():
+            pos_val["music"] = music_path
+
+
+def _validate_music_scope(config, place, position, scope):
+    if not place or place not in config:
+        raise ConfigValidationError("Place not found in the configuration.")
+    if scope not in ("position", "place"):
+        raise ConfigValidationError("Invalid scope (expected 'position' or 'place').")
+    if scope == "position":
+        if not position or position not in config[place]["positions"]:
+            raise ConfigValidationError("Position not found in the configuration.")
+
+
+def handle_upload_music(payload):
+    """Uploads a new ambient audio file and assigns it to a position (or to
+    every position of a place). Files are stored once in data/music/,
+    named after their content hash so re-uploading (or reusing) the exact
+    same audio for another position always resolves to the same path - this
+    is what lets the front-end detect "it's the same track" and avoid
+    restarting playback when navigating between positions."""
+    place = (payload.get("place") or "").strip()
+    position = (payload.get("position") or "").strip() or None
+    scope = (payload.get("scope") or "position").strip()
+    filename = (payload.get("filename") or "").strip()
+    audio_b64 = payload.get("audioBase64") or ""
+
+    if not place or not filename or not audio_b64:
+        raise ConfigValidationError("Missing fields (place, filename, audioBase64).")
+    if not is_safe_path_component(place):
+        raise ConfigValidationError("Invalid place name.")
+
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in VALID_MUSIC_EXTENSIONS:
+        raise ConfigValidationError("Unsupported audio format (mp3, m4a or wav only).")
+
+    config = generate_config.load_existing_config()
+    _validate_music_scope(config, place, position, scope)
+
+    try:
+        raw = base64.b64decode(audio_b64, validate=True)
+    except Exception as exc:  # binascii.Error and others
+        raise ConfigValidationError(f"Invalid audio (base64 decoding failed): {exc}") from exc
+
+    if not raw:
+        raise ConfigValidationError("Empty audio file.")
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise ConfigValidationError("Audio file too large.")
+
+    os.makedirs(MUSIC_DIR, exist_ok=True)
+    file_hash = hashlib.sha256(raw).hexdigest()
+    stored_path = os.path.join(MUSIC_DIR, f"{file_hash}{ext}")
+    rel_path = stored_path.replace("\\", "/")
+
+    if not os.path.exists(stored_path):
+        tmp_path = stored_path + ".tmp"
+        with open(tmp_path, "wb") as f:
+            f.write(raw)
+        os.replace(tmp_path, stored_path)
+        log.info("Music saved: %s (%.1f KB)", stored_path, len(raw) / 1024)
+    else:
+        log.info("Music already exists (identical content), reusing: %s", stored_path)
+
+    make_backup()
+    _assign_music(config, place, position if scope == "position" else None, rel_path)
+    write_config(config)
+
+    log.info(
+        "Music assigned: %s -> %s (%s)",
+        rel_path, place, position if scope == "position" else "ALL positions",
+    )
+    return {"status": "success", "config": config, "musicPath": rel_path}
+
+
+def handle_set_music(payload):
+    """Assigns an already-uploaded music file (picked from the existing
+    library) to a position or to a whole place, without re-uploading it."""
+    place = (payload.get("place") or "").strip()
+    position = (payload.get("position") or "").strip() or None
+    scope = (payload.get("scope") or "position").strip()
+    music_path = (payload.get("musicPath") or "").strip()
+
+    if not music_path:
+        raise ConfigValidationError("'musicPath' field required.")
+
+    config = generate_config.load_existing_config()
+    _validate_music_scope(config, place, position, scope)
+
+    # Only allow pointing to a music file that actually exists on disk,
+    # to avoid config.json referencing a dangling path.
+    normalized = music_path.replace("\\", "/")
+    if not normalized.startswith(f"{MUSIC_DIR}/") or not os.path.isfile(normalized):
+        raise ConfigValidationError("The referenced music file does not exist.")
+
+    make_backup()
+    _assign_music(config, place, position if scope == "position" else None, normalized)
+    write_config(config)
+
+    log.info(
+        "Music reassigned: %s -> %s (%s)",
+        normalized, place, position if scope == "position" else "ALL positions",
+    )
+    return {"status": "success", "config": config}
+
+
+def handle_clear_music(payload):
+    """Removes the ambient music of a position or of a whole place. The
+    underlying audio file in data/music/ is left untouched, since it may
+    still be referenced by other positions."""
+    place = (payload.get("place") or "").strip()
+    position = (payload.get("position") or "").strip() or None
+    scope = (payload.get("scope") or "position").strip()
+
+    config = generate_config.load_existing_config()
+    _validate_music_scope(config, place, position, scope)
+
+    make_backup()
+    _assign_music(config, place, position if scope == "position" else None, None)
+    write_config(config)
+
+    log.info("Music cleared: %s (%s)", place, position if scope == "position" else "ALL positions")
+    return {"status": "success", "config": config}
 
 
 # =============================================================================
@@ -499,6 +645,9 @@ class PearViewHandler(SimpleHTTPRequestHandler):
             "/api/rescan": self._handle_rescan,
             "/api/rename-place": self._handle_rename_place,
             "/api/rename-position": self._handle_rename_position,
+            "/api/upload-music": self._handle_upload_music,
+            "/api/set-music": self._handle_set_music,
+            "/api/clear-music": self._handle_clear_music,
         }
         handler = routes.get(self.path)
         if handler is None:
@@ -599,6 +748,48 @@ class PearViewHandler(SimpleHTTPRequestHandler):
         except OSError as exc:
             log.error("Disk error during rename: %s", exc)
             self._send_json(500, {"status": "error", "message": "Server error during rename."})
+
+    def _handle_upload_music(self):
+        payload = self._read_json_body()
+        if payload is None:
+            return
+        try:
+            result = handle_upload_music(payload)
+            self._send_json(200, result)
+        except ConfigValidationError as exc:
+            log.warning("Music upload rejected: %s", exc)
+            self._send_json(400, {"status": "error", "message": str(exc)})
+        except OSError as exc:
+            log.error("Disk error while uploading music: %s", exc)
+            self._send_json(500, {"status": "error", "message": "Server error while writing the file."})
+
+    def _handle_set_music(self):
+        payload = self._read_json_body()
+        if payload is None:
+            return
+        try:
+            result = handle_set_music(payload)
+            self._send_json(200, result)
+        except ConfigValidationError as exc:
+            log.warning("Music assignment rejected: %s", exc)
+            self._send_json(400, {"status": "error", "message": str(exc)})
+        except OSError as exc:
+            log.error("Disk error while assigning music: %s", exc)
+            self._send_json(500, {"status": "error", "message": "Server error while assigning music."})
+
+    def _handle_clear_music(self):
+        payload = self._read_json_body()
+        if payload is None:
+            return
+        try:
+            result = handle_clear_music(payload)
+            self._send_json(200, result)
+        except ConfigValidationError as exc:
+            log.warning("Music removal rejected: %s", exc)
+            self._send_json(400, {"status": "error", "message": str(exc)})
+        except OSError as exc:
+            log.error("Disk error while clearing music: %s", exc)
+            self._send_json(500, {"status": "error", "message": "Server error while clearing music."})
 
 
 def main():
